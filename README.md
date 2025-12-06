@@ -1,100 +1,104 @@
 --[[
-    RaioVerse Hub (Aimbot Suave) - LocalScript Roblox
-    Funções: AimBot Suave, Fly, Velocidade, Hitbox em tempo real, Minimizar HUB
-    Uso: Coloque em StarterGui ou execute via executor.
+    RaioVerse Hub - Simples, bonito e leve!
+    Funções: AimBot suave, Fly, Speed, Hitbox "Skeleton", Minimizar, e light layout.
 --]]
 
 local Players = game:GetService("Players")
 local UserInputService = game:GetService("UserInputService")
 local RunService = game:GetService("RunService")
 local CoreGui = game:GetService("CoreGui")
-
 local localPlayer = Players.LocalPlayer
+
+-- Paleta de cores pastel / moderna
+local colors = {
+    bg = Color3.fromRGB(40,44,60),
+    accent = Color3.fromRGB(103,146,255),
+    btn = Color3.fromRGB(93,108,198),
+    btn_hover = Color3.fromRGB(123,158,255),
+    text = Color3.fromRGB(221,234,255),
+    shadow = Color3.fromRGB(30,30,40),
+}
 
 ------------------------------------------------------------------
 ---------------------- GUI DEFINITIONS ---------------------------
 ------------------------------------------------------------------
-
-local function createRoundFrame(parent, size, pos, color, transparency)
-    local frame = Instance.new("Frame")
-    frame.Size = size
-    frame.Position = pos
-    frame.Parent = parent
-    frame.BackgroundColor3 = color
-    frame.BackgroundTransparency = transparency or 0
-    frame.BorderSizePixel = 0
-    local uw = Instance.new("UICorner", frame)
-    uw.CornerRadius = UDim.new(0, 18)
-    return frame
-end
-
 local hubGui = Instance.new("ScreenGui")
 hubGui.Name = "RaioVerseHub"
 hubGui.Parent = CoreGui
 
-local mainFrame = createRoundFrame(hubGui, UDim2.new(0,390,0,310), UDim2.new(0.5,-195,0.5,-155), Color3.fromRGB(25,28,48), 0.10)
-mainFrame.Active = true
-mainFrame.Draggable = true
-mainFrame.Visible = true
+-- Sombra
+local shadowFrame = Instance.new("Frame", hubGui)
+shadowFrame.BackgroundColor3 = colors.shadow
+shadowFrame.BackgroundTransparency = 0.5
+shadowFrame.Size = UDim2.new(0,340,0,240)
+shadowFrame.Position = UDim2.new(0.5,-172,0.5,-122)
+shadowFrame.ZIndex = 0
+Instance.new("UICorner", shadowFrame).CornerRadius = UDim.new(0,17)
 
-local header = createRoundFrame(mainFrame, UDim2.new(1,0,0,45), UDim2.new(0,0,0,0), Color3.fromRGB(30,37,70), 0.07)
-local title = Instance.new("TextLabel", header)
-title.Size = UDim2.new(1, -50, 1, 0)
-title.Position = UDim2.new(0, 15, 0, 0)
+local mainFrame = Instance.new("Frame", hubGui)
+mainFrame.Size = UDim2.new(0,340,0,240)
+mainFrame.Position = UDim2.new(0.5,-170,0.5,-120)
+mainFrame.BackgroundColor3 = colors.bg
+mainFrame.BackgroundTransparency = 0.08
+mainFrame.BorderSizePixel = 0
+mainFrame.ZIndex = 1
+Instance.new("UICorner", mainFrame).CornerRadius = UDim.new(0,17)
+mainFrame.Active, mainFrame.Draggable, mainFrame.Visible = true, true, true
+
+local title = Instance.new("TextLabel", mainFrame)
+title.Size = UDim2.new(1, 0, 0, 38)
+title.Position = UDim2.new(0,0,0,0)
 title.BackgroundTransparency = 1
 title.Font = Enum.Font.GothamBold
 title.Text = "RaioVerse Hub"
-title.TextColor3 = Color3.fromRGB(195,211,255)
-title.TextSize = 28
-title.TextXAlignment = Enum.TextXAlignment.Left
+title.TextColor3 = colors.accent
+title.TextSize = 26
+title.ZIndex = 2
 
-local minBtn = Instance.new("TextButton", header)
-minBtn.Size = UDim2.new(0,38,0,30)
-minBtn.Position = UDim2.new(1,-45,0,8)
-minBtn.BackgroundColor3 = Color3.fromRGB(52,68,143)
-minBtn.AutoButtonColor = true
-minBtn.Text = "_"
-minBtn.Font = Enum.Font.GothamBold
-minBtn.TextColor3 = Color3.fromRGB(205,205,230)
-minBtn.TextSize = 28
-Instance.new("UICorner", minBtn).CornerRadius = UDim.new(0, 8)
+local minBtn = Instance.new("TextButton", mainFrame)
+minBtn.Size = UDim2.new(0,31,0,31)
+minBtn.Position = UDim2.new(1,-40,0,7)
+minBtn.BackgroundColor3 = colors.btn
+minBtn.Text = "—"
+minBtn.Font = Enum.Font.GothamSemibold
+minBtn.TextColor3 = colors.text
+minBtn.TextSize = 24
+minBtn.ZIndex = 3
+Instance.new("UICorner", minBtn).CornerRadius = UDim.new(0,11)
 
-local btnFrame = createRoundFrame(mainFrame, UDim2.new(1, -32, 1, -60), UDim2.new(0,16,0,50), Color3.fromRGB(29,23,43), 0.18)
+local btnFrame = Instance.new("Frame", mainFrame)
+btnFrame.Size = UDim2.new(1,-30,1,-55)
+btnFrame.Position = UDim2.new(0,15,0,45)
+btnFrame.BackgroundTransparency = 1
+btnFrame.ZIndex = 3
 local btnList = Instance.new("UIListLayout", btnFrame)
-btnList.Padding = UDim.new(0,16)
+btnList.Padding = UDim.new(0,11)
 btnList.HorizontalAlignment = Enum.HorizontalAlignment.Center
 btnList.SortOrder = Enum.SortOrder.LayoutOrder
 
-local function makeToggleBtn(texto)
-    local btn = Instance.new("TextButton", btnFrame)
-    btn.Size = UDim2.new(1, -10, 0, 44)
-    btn.BackgroundColor3 = Color3.fromRGB(67, 89, 174)
-    btn.AutoButtonColor = true
-    btn.Text = "[ OFF ]  " .. texto
-    btn.Font = Enum.Font.GothamSemibold
-    btn.TextColor3 = Color3.fromRGB(235,235,255)
-    btn.TextSize = 19
-    local icorner = Instance.new("UICorner", btn)
-    icorner.CornerRadius = UDim.new(0,13)
-    btn.MouseEnter:Connect(function() btn.BackgroundColor3 = Color3.fromRGB(88,115,215) end)
-    btn.MouseLeave:Connect(function() btn.BackgroundColor3 = Color3.fromRGB(67,89,174) end)
-    return btn
-end
-
 local credits = Instance.new("TextLabel", mainFrame)
-credits.Size = UDim2.new(1,0,0,18)
-credits.Position = UDim2.new(0,0,1,-18)
+credits.Size = UDim2.new(1,0,0,17)
+credits.Position = UDim2.new(0,0,1,-19)
 credits.BackgroundTransparency = 1
-credits.Text = "☄️ By RaioVerse"
-credits.TextColor3 = Color3.fromRGB(150, 190, 255)
-credits.TextStrokeTransparency = 0.7
+credits.Text = "☄️ RaioVerse"
+credits.TextColor3 = colors.accent
 credits.Font = Enum.Font.GothamSemibold
-credits.TextSize = 14
+credits.TextSize = 13
+credits.ZIndex = 3
+
+-- Minimizado
+local iconMin = Instance.new("ImageButton", hubGui)
+iconMin.AutoButtonColor = true
+iconMin.Size = UDim2.new(0,32,0,32)
+iconMin.Position = UDim2.new(0,22,0,22)
+iconMin.BackgroundTransparency = 0.5
+iconMin.Image = "rbxassetid://3926305904" -- Ícone circulo/bolinha (pode trocar por outros)
+iconMin.Visible = false
+iconMin.ZIndex = 10
 
 ------------------------------------------------------------------
 ---------------------- TOGGLE LOGIC ------------------------------
 ------------------------------------------------------------------
-
 local state = {
     AimBot = false,
     Fly = false,
@@ -102,20 +106,35 @@ local state = {
     Hitbox = false
 }
 
+-- Botão estilizado
+local function makeToggleBtn(txt)
+    local btn = Instance.new("TextButton", btnFrame)
+    btn.Size = UDim2.new(1,0,0,38)
+    btn.BackgroundColor3 = colors.btn
+    btn.Text = "[ OFF ]  " .. txt
+    btn.Font = Enum.Font.Gotham
+    btn.TextColor3 = colors.text
+    btn.TextSize = 19
+    btn.ZIndex = 4
+    Instance.new("UICorner",btn).CornerRadius = UDim.new(0,10)
+    btn.MouseEnter:Connect(function() btn.BackgroundColor3 = colors.btn_hover end)
+    btn.MouseLeave:Connect(function() btn.BackgroundColor3 = colors.btn end)
+    return btn
+end
+
 ------------------------------------------------------------------
--- AimBot Suave: Interpola gradualmente o olhar da câmera para o alvo
+----- [AimBot Suave] ---------------------------------------------
 ------------------------------------------------------------------
 local aimbotConn = nil
-
--- Valor de suavidade do AimBot (entre 0.01 = MUITO lento, 1 = instantâneo; recomendo ~0.08 a 0.18)
-local AIMBOT_SMOOTHNESS = 0.11
+local AIMBOT_SMOOTHNESS = 0.12
 
 local function getClosestPlayer()
     local smallest = math.huge
     local cam = workspace.CurrentCamera
     local bestPlayer = nil
     for _,p in pairs(Players:GetPlayers()) do
-        if p ~= localPlayer and p.Character and p.Character:FindFirstChild("HumanoidRootPart") and p.Character:FindFirstChild("Humanoid") and p.Character.Humanoid.Health > 0 then
+        if p ~= localPlayer and p.Character and p.Character:FindFirstChild("HumanoidRootPart") and p.Character:FindFirstChild("Humanoid")
+            and p.Character.Humanoid.Health > 0 then
             local hrp = p.Character.HumanoidRootPart.Position
             local pos, onScreen = cam:WorldToViewportPoint(hrp)
             if onScreen then
@@ -134,21 +153,17 @@ local function aimBotStep()
     if state.AimBot then
         local cam = workspace.CurrentCamera
         local currentCF = cam.CFrame
-        -- Descobre jogador alvo mais próximo do meio da tela
         local targetPlayer = getClosestPlayer()
         if targetPlayer and targetPlayer.Character and targetPlayer.Character:FindFirstChild("HumanoidRootPart") then
             local hrp = targetPlayer.Character.HumanoidRootPart
             local lookAt = hrp.Position
-            -- Interpola CFrame olhando para o alvo (suave)
             local desiredCF = CFrame.new(cam.CFrame.Position, lookAt)
             cam.CFrame = currentCF:Lerp(desiredCF, AIMBOT_SMOOTHNESS)
         end
-        -- Se não tem alvo, câmera fica livre para você mexer
     end
 end
-
 ------------------------------------------------------------------
--- Fly: Use W/A/S/D + Espaço/LCtrl para voar
+----- [Fly] ------------------------------------------------------
 ------------------------------------------------------------------
 local flyConn = nil
 local FlySpeed = 60
@@ -180,7 +195,7 @@ local function stopFly()
 end
 
 ------------------------------------------------------------------
--- Speed: aumenta/diminui a WalkSpeed do player
+----- [Speed] ----------------------------------------------------
 ------------------------------------------------------------------
 local SpeedValue = 45
 local function setSpeed(enabled)
@@ -188,62 +203,84 @@ local function setSpeed(enabled)
         localPlayer.Character:FindFirstChildWhichIsA("Humanoid").WalkSpeed = enabled and SpeedValue or 16
     end
 end
+local function FixSpeed() setSpeed(state.Speed) end
+localPlayer.CharacterAdded:Connect(function() wait(0.3) FixSpeed() end)
 
-local function FixSpeed()
-    setSpeed(state.Speed)
-end
-localPlayer.CharacterAdded:Connect(function()
-    wait(0.4)
-    FixSpeed()
-end)
+RunService.Stepped:Connect(function() if state.Speed then setSpeed(true) end end)
 
 ------------------------------------------------------------------
--- Hitbox em tempo real
+----- [Hitbox Skeleton] ------------------------------------------
 ------------------------------------------------------------------
-local hitboxParts = {}
+-- Função "draw skeleton" usando linhas (Attachs): entre cabeça, torso, braços, pés dos outros players
+local skeletons = {}
+local bones = {
+    -- {de, para}
+    {"Head","UpperTorso"},
+    {"UpperTorso","LowerTorso"},
+    {"UpperTorso","LeftUpperArm"}, {"LeftUpperArm","LeftLowerArm"}, {"LeftLowerArm","LeftHand"},
+    {"UpperTorso","RightUpperArm"}, {"RightUpperArm","RightLowerArm"}, {"RightLowerArm","RightHand"},
+    {"LowerTorso","LeftUpperLeg"}, {"LeftUpperLeg","LeftLowerLeg"}, {"LeftLowerLeg","LeftFoot"},
+    {"LowerTorso","RightUpperLeg"}, {"RightUpperLeg","RightLowerLeg"}, {"RightLowerLeg","RightFoot"},
+}
 
-local function clearHitboxes()
-    for _, hl in ipairs(hitboxParts) do pcall(function() hl:Destroy() end) end
-    table.clear(hitboxParts)
+local function clearSkeletons()
+    for _,tab in ipairs(skeletons) do for _,a in ipairs(tab) do pcall(function() a:Destroy() end) end end
+    table.clear(skeletons)
 end
 
-local function updateHitboxes()
-    clearHitboxes()
+local function updateSkeletons()
+    clearSkeletons()
     if not state.Hitbox then return end
-    for _, player in ipairs(Players:GetPlayers()) do
-        if player ~= localPlayer and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
-            local highlight = Instance.new("BoxHandleAdornment")
-            highlight.Name = "RaioHitbox"
-            highlight.Adornee = player.Character.HumanoidRootPart
-            highlight.Color3 = Color3.fromRGB(255, 65, 85)
-            highlight.AlwaysOnTop, highlight.Transparency, highlight.Size = true, 0.45, Vector3.new(4,6,2)
-            highlight.ZIndex = 3
-            highlight.Parent = workspace
-            table.insert(hitboxParts, highlight)
+    for _,plr in ipairs(Players:GetPlayers()) do
+        if plr ~= localPlayer and plr.Character then
+            local nodes = {}
+            for _,bone in ipairs(bones) do
+                local partA = plr.Character:FindFirstChild(bone[1])
+                local partB = plr.Character:FindFirstChild(bone[2])
+                if partA and partB then
+                    local att = Instance.new("Attachment")
+                    att.Parent = partA
+                    local att2 = Instance.new("Attachment")
+                    att2.Parent = partB
+                    local line = Instance.new("Beam")
+                    line.Attachment0, line.Attachment1 = att, att2
+                    line.FaceCamera = true
+                    line.Color = ColorSequence.new(colors.accent)
+                    line.Width0 = 0.23; line.Width1 = 0.09
+                    line.Transparency = NumberSequence.new(0.18)
+                    line.LightEmission = 0.56
+                    line.Parent = partA
+                    table.insert(nodes, att)
+                    table.insert(nodes, att2)
+                    table.insert(nodes, line)
+                end
+            end
+            table.insert(skeletons, nodes)
         end
     end
 end
 
-local hitboxUpdateConn = nil
-local function toggleHitbox(active)
-    if active and not hitboxUpdateConn then
-        hitboxUpdateConn = RunService.RenderStepped:Connect(function()
-            updateHitboxes()
+-- Real-time skeleton update!
+local skeletonConn = nil
+local function toggleSkeleton(active)
+    if active and not skeletonConn then
+        skeletonConn = RunService.RenderStepped:Connect(function()
+            updateSkeletons()
         end)
-    elseif not active and hitboxUpdateConn then
-        hitboxUpdateConn:Disconnect()
-        hitboxUpdateConn = nil
-        clearHitboxes()
+    elseif not active and skeletonConn then
+        skeletonConn:Disconnect()
+        skeletonConn = nil
+        clearSkeletons()
     end
 end
 
 ------------------------------------------------------------------
----------------------- BOTÕES E EVENTOS --------------------------
+---------------------- BOTÕES DO HUB -----------------------------
 ------------------------------------------------------------------
-local aimBtn = makeToggleBtn("Aim Bot SUAVE (Apontar automaticamente)")
+local aimBtn = makeToggleBtn("AimBot Suave")
 aimBtn.MouseButton1Click:Connect(function()
     state.AimBot = not state.AimBot
-    aimBtn.Text = (state.AimBot and "[ ON ] " or "[ OFF ] ") .. "Aim Bot SUAVE (Apontar automaticamente)"
+    aimBtn.Text = (state.AimBot and "[ ON ] " or "[ OFF ] ") .. "AimBot Suave"
     if state.AimBot and not aimbotConn then
         aimbotConn = RunService.RenderStepped:Connect(aimBotStep)
     elseif not state.AimBot and aimbotConn then
@@ -252,10 +289,10 @@ aimBtn.MouseButton1Click:Connect(function()
     end
 end)
 
-local flyBtn = makeToggleBtn("Fly (Use W/A/S/D + Espaço/LCtrl)")
+local flyBtn = makeToggleBtn("Fly")
 flyBtn.MouseButton1Click:Connect(function()
     state.Fly = not state.Fly
-    flyBtn.Text = (state.Fly and "[ ON ] " or "[ OFF ] ") .. "Fly (Use W/A/S/D + Espaço/LCtrl)"
+    flyBtn.Text = (state.Fly and "[ ON ] " or "[ OFF ] ") .. "Fly"
     if state.Fly then
         flyActivate()
     else
@@ -263,45 +300,50 @@ flyBtn.MouseButton1Click:Connect(function()
     end
 end)
 
-local speedBtn = makeToggleBtn("Velocidade Turbo ("..SpeedValue..")")
+local speedBtn = makeToggleBtn("Velocidade Turbo")
 speedBtn.MouseButton1Click:Connect(function()
     state.Speed = not state.Speed
-    speedBtn.Text = (state.Speed and "[ ON ] " or "[ OFF ] ") .. "Velocidade Turbo ("..SpeedValue..")"
+    speedBtn.Text = (state.Speed and "[ ON ] " or "[ OFF ] ") .. "Velocidade Turbo"
     setSpeed(state.Speed)
 end)
 
-local hitboxBtn = makeToggleBtn("Hitbox em Tempo Real")
+local hitboxBtn = makeToggleBtn("Skeleton Hitbox")
 hitboxBtn.MouseButton1Click:Connect(function()
     state.Hitbox = not state.Hitbox
-    hitboxBtn.Text = (state.Hitbox and "[ ON ] " or "[ OFF ] ") .. "Hitbox em Tempo Real"
-    toggleHitbox(state.Hitbox)
+    hitboxBtn.Text = (state.Hitbox and "[ ON ] " or "[ OFF ] ") .. "Skeleton Hitbox"
+    toggleSkeleton(state.Hitbox)
 end)
 
 ------------------------------------------------------------------
----------------------- MINIMIZAR/RESTAURAR HUB -------------------
+---- MINIMIZAR/ABRIR HUB com icone discreto ----------------------
 ------------------------------------------------------------------
 local minimized = false
-local origSize, origPos = mainFrame.Size, mainFrame.Position
-
 minBtn.MouseButton1Click:Connect(function()
-    minimized = not minimized
-    if minimized then
-        mainFrame:TweenSize(UDim2.new(0,190, 0,60), "Out", "Quad", 0.25, true)
-        mainFrame:TweenPosition(UDim2.new(0, 30, 0, 30), "Out", "Quad", 0.22, true)
-        btnFrame.Visible = false
-        for _,c in pairs(mainFrame:GetChildren()) do if c:IsA("TextLabel") and c ~= header and c ~= title then c.Visible = false end end
-        minBtn.Text = "□"
-    else
-        mainFrame:TweenSize(origSize, "Out", "Quad", 0.23, true)
-        mainFrame:TweenPosition(origPos, "Out", "Quad", 0.22, true)
-        btnFrame.Visible = true
-        for _,c in pairs(mainFrame:GetChildren()) do if c:IsA("TextLabel") then c.Visible = true end end
-        minBtn.Text = "_"
-    end
+    minimized = true
+    mainFrame.Visible = false
+    shadowFrame.Visible = false
+    iconMin.Visible = true
+end)
+iconMin.MouseButton1Click:Connect(function()
+    minimized = false
+    mainFrame.Visible = true
+    shadowFrame.Visible = true
+    iconMin.Visible = false
 end)
 
 hubGui.DisplayOrder = 8926
 
-game:GetService("RunService").Stepped:Connect(function()
-    if state.Speed then setSpeed(true) end
-end)
+------------------------------------------------------------------
+------ Mais ideias para seu HUB: (adicionar facilmente!) ----------
+------------------------------------------------------------------
+--[[
+-- ESP: Mostra nome/distância dos jogadores acima da cabeça
+-- NoClip: Libera atravessar paredes
+-- JumpPower: Ajusta altura do pulo
+-- Super Knockback: Empurra mais forte ao atacar
+-- ClickTP: Teleportar para onde clicar
+-- FOV Changer: Muda campo de visão
+-- Color Theme: Troca esquema de cor do hub
+-- Anti-AFK: Evita kick de inatividade
+-- E muito mais!
+]]
