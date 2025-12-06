@@ -1,6 +1,6 @@
 --[[
-    RaioVerse Hub - LocalScript Roblox
-    Funções: AimBot, Fly, Velocidade, Hitbox em tempo real, Minimizar HUB
+    RaioVerse Hub (Aimbot Suave) - LocalScript Roblox
+    Funções: AimBot Suave, Fly, Velocidade, Hitbox em tempo real, Minimizar HUB
     Uso: Coloque em StarterGui ou execute via executor.
 --]]
 
@@ -103,9 +103,13 @@ local state = {
 }
 
 ------------------------------------------------------------------
--- AimBot: Mira automaticamente no jogador mais próximo (ativa assim que ligar)
+-- AimBot Suave: Interpola gradualmente o olhar da câmera para o alvo
 ------------------------------------------------------------------
 local aimbotConn = nil
+
+-- Valor de suavidade do AimBot (entre 0.01 = MUITO lento, 1 = instantâneo; recomendo ~0.08 a 0.18)
+local AIMBOT_SMOOTHNESS = 0.11
+
 local function getClosestPlayer()
     local smallest = math.huge
     local cam = workspace.CurrentCamera
@@ -129,10 +133,17 @@ end
 local function aimBotStep()
     if state.AimBot then
         local cam = workspace.CurrentCamera
-        local target = getClosestPlayer()
-        if target and target.Character and target.Character:FindFirstChild("HumanoidRootPart") then
-            cam.CFrame = CFrame.new(cam.CFrame.Position, target.Character.HumanoidRootPart.Position)
+        local currentCF = cam.CFrame
+        -- Descobre jogador alvo mais próximo do meio da tela
+        local targetPlayer = getClosestPlayer()
+        if targetPlayer and targetPlayer.Character and targetPlayer.Character:FindFirstChild("HumanoidRootPart") then
+            local hrp = targetPlayer.Character.HumanoidRootPart
+            local lookAt = hrp.Position
+            -- Interpola CFrame olhando para o alvo (suave)
+            local desiredCF = CFrame.new(cam.CFrame.Position, lookAt)
+            cam.CFrame = currentCF:Lerp(desiredCF, AIMBOT_SMOOTHNESS)
         end
+        -- Se não tem alvo, câmera fica livre para você mexer
     end
 end
 
@@ -213,7 +224,6 @@ local function updateHitboxes()
     end
 end
 
--- Atualiza hitboxes o tempo todo quando ligado!
 local hitboxUpdateConn = nil
 local function toggleHitbox(active)
     if active and not hitboxUpdateConn then
@@ -230,10 +240,10 @@ end
 ------------------------------------------------------------------
 ---------------------- BOTÕES E EVENTOS --------------------------
 ------------------------------------------------------------------
-local aimBtn = makeToggleBtn("Aim Bot (Apontar automaticamente)")
+local aimBtn = makeToggleBtn("Aim Bot SUAVE (Apontar automaticamente)")
 aimBtn.MouseButton1Click:Connect(function()
     state.AimBot = not state.AimBot
-    aimBtn.Text = (state.AimBot and "[ ON ] " or "[ OFF ] ") .. "Aim Bot (Apontar automaticamente)"
+    aimBtn.Text = (state.AimBot and "[ ON ] " or "[ OFF ] ") .. "Aim Bot SUAVE (Apontar automaticamente)"
     if state.AimBot and not aimbotConn then
         aimbotConn = RunService.RenderStepped:Connect(aimBotStep)
     elseif not state.AimBot and aimbotConn then
