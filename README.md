@@ -1,13 +1,14 @@
 --[[
-    RaioVerse Hub - Jogos de Corrida + Auto Win CDT!
-    Funções: AimBot suave, Velocidade Turbo, ESP Head, AutoWin CDT, minimização simples
+    RaioVerse Hub - Auto Click + Ataque à Distância (Blox Fruits)
+    Funções: AimBot suave, Velocidade Turbo, ESP Head, Turbo Carro, Auto Click, Atacar NPCs de longe
 --]]
 
 local Players = game:GetService("Players")
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local UserInputService = game:GetService("UserInputService")
 local RunService = game:GetService("RunService")
 local CoreGui = game:GetService("CoreGui")
+local Workspace = game:GetService("Workspace")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local localPlayer = Players.LocalPlayer
 
 local colors = {
@@ -18,30 +19,36 @@ local colors = {
     text = Color3.fromRGB(221,234,255),
     shadow = Color3.fromRGB(30,30,40),
 }
+local state = {
+    AimBot = false,
+    Speed = false,
+    Hitbox = false,
+    AutoClick = false,
+    AutoAttackNPC = false
+}
 
--- HUB GUI
-local hubGui = Instance.new("ScreenGui")
+-- GUI Layout
+local hubGui = Instance.new("ScreenGui", CoreGui)
 hubGui.Name = "RaioVerseHub"
-hubGui.Parent = CoreGui
 
--- Sombra frame
 local shadowFrame = Instance.new("Frame", hubGui)
 shadowFrame.BackgroundColor3 = colors.shadow
 shadowFrame.BackgroundTransparency = 0.5
-shadowFrame.Size = UDim2.new(0,340,0,235)
-shadowFrame.Position = UDim2.new(0.5,-172,0.5,-117)
+shadowFrame.Size = UDim2.new(0,355,0,300)
+shadowFrame.Position = UDim2.new(0.5,-177,0.5,-148)
 shadowFrame.ZIndex = 0
 Instance.new("UICorner", shadowFrame).CornerRadius = UDim.new(0,17)
 
 local mainFrame = Instance.new("Frame", hubGui)
-mainFrame.Size = UDim2.new(0,340,0,235)
-mainFrame.Position = UDim2.new(0.5,-170,0.5,-115)
+mainFrame.Size = UDim2.new(0,355,0,300)
+mainFrame.Position = UDim2.new(0.5,-175,0.5,-150)
 mainFrame.BackgroundColor3 = colors.bg
 mainFrame.BackgroundTransparency = 0.08
 mainFrame.BorderSizePixel = 0
 mainFrame.ZIndex = 1
 Instance.new("UICorner", mainFrame).CornerRadius = UDim.new(0,17)
-mainFrame.Active, mainFrame.Draggable, mainFrame.Visible = true, true, true
+mainFrame.Active = true
+mainFrame.Draggable = true
 
 local title = Instance.new("TextLabel", mainFrame)
 title.Size = UDim2.new(1, 0, 0, 36)
@@ -84,7 +91,6 @@ credits.Font = Enum.Font.GothamSemibold
 credits.TextSize = 13
 credits.ZIndex = 3
 
--- Minimizado
 local iconMin = Instance.new("ImageButton", hubGui)
 iconMin.Size = UDim2.new(0,32,0,32)
 iconMin.Position = UDim2.new(0,22,0,22)
@@ -93,15 +99,8 @@ iconMin.Image = "rbxassetid://3926305904" -- círculo discreto
 iconMin.Visible = false
 iconMin.ZIndex = 10
 
-------------------------------------------------------------------
----------------------- TOGGLE LOGIC ------------------------------
-------------------------------------------------------------------
-local state = {
-    AimBot = false,
-    Speed = false,
-    Hitbox = false
-}
-
+------------------------------------------------------------------------
+-- Botão padrão estilizado
 local function makeToggleBtn(txt)
     local btn = Instance.new("TextButton", btnFrame)
     btn.Size = UDim2.new(1,0,0,38)
@@ -117,9 +116,8 @@ local function makeToggleBtn(txt)
     return btn
 end
 
-------------------------------------------------------------------
------ 1. AimBot Suave --------------------------------------------
-------------------------------------------------------------------
+------------------------------------------------------------------------
+-- 1. AimBot Suave
 local aimbotConn = nil
 local AIMBOT_SMOOTHNESS = 0.13
 local function getClosestPlayer()
@@ -154,9 +152,9 @@ local function aimBotStep()
         end
     end
 end
-------------------------------------------------------------------
------ 2. Speed Turbo ---------------------------------------------
-------------------------------------------------------------------
+
+------------------------------------------------------------------------
+-- 2. Velocidade Turbo (Personagem)
 local SpeedValue = 45
 local function setSpeed(enabled)
     if localPlayer.Character and localPlayer.Character:FindFirstChildWhichIsA("Humanoid") then
@@ -167,16 +165,13 @@ local function FixSpeed() setSpeed(state.Speed) end
 localPlayer.CharacterAdded:Connect(function() wait(0.3) FixSpeed() end)
 RunService.Stepped:Connect(function() if state.Speed then setSpeed(true) end end)
 
-------------------------------------------------------------------
------ 3. Head Hitbox ESP -----------------------------------------
-------------------------------------------------------------------
+------------------------------------------------------------------------
+-- 3. ESP Head Hitbox
 local headHighlights = {}
-
 local function clearHeadHighlights()
     for _,h in ipairs(headHighlights) do pcall(function() h:Destroy() end) end
     table.clear(headHighlights)
 end
-
 local function updateHeadHighlights()
     clearHeadHighlights()
     if not state.Hitbox then return end
@@ -194,7 +189,6 @@ local function updateHeadHighlights()
         end
     end
 end
-
 local headConn = nil
 local function toggleHeadESP(active)
     if active and not headConn then
@@ -208,28 +202,113 @@ local function toggleHeadESP(active)
     end
 end
 
-------------------------------------------------------------------
------ 4. Auto Win CDT --------------------------------------------
-------------------------------------------------------------------
-local function AutoWinCDT()
-    local eventsFolder = ReplicatedStorage:FindFirstChild("Events")
-    if not eventsFolder then return end
-    local checkpointsEvent = eventsFolder:FindFirstChild("RaceCheckpoint")
-    local finishEvent     = eventsFolder:FindFirstChild("FinishRace")
-    if not (checkpointsEvent and finishEvent) then return end
-
-    -- Você pode ajustar 25 para a quantidade da corrida desejada!
-    for num=1,25 do
-        checkpointsEvent:FireServer(num, localPlayer)
-        wait(0.15)
+------------------------------------------------------------------------
+-- 4. Turbo do Carro (igual versão anterior)
+local turboBtnCooldown = false
+local TURBO_DURATION = 3.2
+local TURBO_FORCE = 2500
+local function getPlayerCar()
+    for _,v in ipairs(Workspace:GetChildren()) do
+        if v:IsA("Model") and v:FindFirstChildOfClass("VehicleSeat") and v.Name:lower():find(localPlayer.Name:lower()) then
+            return v:FindFirstChildOfClass("VehicleSeat"), v
+        end
     end
-    -- Terminando a corrida
-    finishEvent:FireServer(localPlayer)
+    if localPlayer.Character then
+        local seat = localPlayer.Character:FindFirstChildOfClass("VehicleSeat")
+        if seat then return seat, localPlayer.Character end
+    end
+    return nil, nil
+end
+local function activateCarTurbo()
+    if turboBtnCooldown then return end
+    turboBtnCooldown = true
+    local seat, carModel = getPlayerCar()
+    if seat then
+        local turbo = Instance.new("BodyVelocity")
+        turbo.MaxForce = Vector3.new(1,1,1) * 1e6
+        turbo.Velocity = seat.CFrame.LookVector * TURBO_FORCE
+        turbo.Parent = seat
+        turbo.Name = "RaioTurbo"
+        if carModel and carModel:IsA("Model") then
+            for _,part in ipairs(carModel:GetDescendants()) do
+                if part:IsA("BasePart") then
+                    part.Color = Color3.fromRGB(106,255,133)
+                end
+            end
+        end
+        wait(TURBO_DURATION)
+        turbo:Destroy()
+        if carModel and carModel:IsA("Model") then
+            for _,part in ipairs(carModel:GetDescendants()) do
+                if part:IsA("BasePart") then
+                    part.Color = Color3.fromRGB(255,255,255)
+                end
+            end
+        end
+    else
+        warn("Carro não localizado. Entre em seu carro antes de ativar o Turbo!")
+    end
+    turboBtnCooldown = false
 end
 
-------------------------------------------------------------------
----------------------- BOTÕES DO HUB -----------------------------
-------------------------------------------------------------------
+------------------------------------------------------------------------
+-- 5. **AUTO CLICK** ---------------------------------------------------
+local autoClickConn = nil
+local function startAutoClick()
+    if autoClickConn then return end
+    autoClickConn = RunService.RenderStepped:Connect(function()
+        if UserInputService.MouseEnabled and state.AutoClick then
+            mouse1click()
+        end
+    end)
+end
+local function stopAutoClick()
+    if autoClickConn then autoClickConn:Disconnect() autoClickConn = nil end
+end
+
+-- Função universal de mouse1click (usada por executores), para roblox executor padrão:
+function mouse1click()
+    localVirtualInput = game:GetService("VirtualInputManager")
+    localVirtualInput:SendMouseButtonEvent(0,0,0,true,game,0)
+    localVirtualInput:SendMouseButtonEvent(0,0,0,false,game,0)
+end
+
+------------------------------------------------------------------------
+-- 6. **Ataque à Distância NPCs Blox Fruits**
+local autoAttackConn = nil
+local function attackNPCsBloxFruit()
+    local tool = localPlayer.Character and localPlayer.Character:FindFirstChildOfClass("Tool")
+    if tool then
+        for _,npc in ipairs(Workspace.Enemies:GetChildren()) do
+            if npc:FindFirstChild("Humanoid") and npc.Humanoid.Health > 0 then
+                local args = {
+                    [1] = npc.Humanoid,
+                    [2] = tool
+                }
+                -- Usa evento remoto padrão de ataques (editável conforme armas do BF)
+                pcall(function()
+                    tool:Activate()
+                    tool:Activate() -- duplo ataque por garantia
+                    -- Algumas frutas/ferramentas usam remote: ReplicatedStorage.Remotes.CommF_:InvokeServer(...)
+                end)
+            end
+        end
+    end
+end
+local function startAutoAttackNPC()
+    if autoAttackConn then return end
+    autoAttackConn = RunService.RenderStepped:Connect(function()
+        if state.AutoAttackNPC then
+            attackNPCsBloxFruit()
+        end
+    end)
+end
+local function stopAutoAttackNPC()
+    if autoAttackConn then autoAttackConn:Disconnect() autoAttackConn = nil end
+end
+
+------------------------------------------------------------------------
+-- Botões
 local aimBtn = makeToggleBtn("AimBot Suave")
 aimBtn.MouseButton1Click:Connect(function()
     state.AimBot = not state.AimBot
@@ -242,10 +321,10 @@ aimBtn.MouseButton1Click:Connect(function()
     end
 end)
 
-local speedBtn = makeToggleBtn("Velocidade Turbo")
+local speedBtn = makeToggleBtn("Velocidade Turbo (Personagem)")
 speedBtn.MouseButton1Click:Connect(function()
     state.Speed = not state.Speed
-    speedBtn.Text = (state.Speed and "[ ON ] " or "[ OFF ] ") .. "Velocidade Turbo"
+    speedBtn.Text = (state.Speed and "[ ON ] " or "[ OFF ] ") .. "Velocidade Turbo (Personagem)"
     setSpeed(state.Speed)
 end)
 
@@ -256,25 +335,45 @@ headBtn.MouseButton1Click:Connect(function()
     toggleHeadESP(state.Hitbox)
 end)
 
-local autoWinBtn = Instance.new("TextButton", btnFrame)
-autoWinBtn.Size = UDim2.new(1,0,0,38)
-autoWinBtn.BackgroundColor3 = Color3.fromRGB(124, 185, 77)
-autoWinBtn.Text = "Auto Win CDT"
-autoWinBtn.Font = Enum.Font.GothamBold
-autoWinBtn.TextColor3 = colors.text
-autoWinBtn.TextSize = 19
-autoWinBtn.ZIndex = 4
-Instance.new("UICorner", autoWinBtn).CornerRadius = UDim.new(0,10)
-autoWinBtn.MouseEnter:Connect(function() autoWinBtn.BackgroundColor3 = Color3.fromRGB(134,205,97) end)
-autoWinBtn.MouseLeave:Connect(function() autoWinBtn.BackgroundColor3 = Color3.fromRGB(124,185,77) end)
-
-autoWinBtn.MouseButton1Click:Connect(function()
-    pcall(AutoWinCDT)
+local turboBtn = Instance.new("TextButton", btnFrame)
+turboBtn.Size = UDim2.new(1,0,0,38)
+turboBtn.BackgroundColor3 = Color3.fromRGB(118,210,98)
+turboBtn.Text = "Turbo do Carro"
+turboBtn.Font = Enum.Font.GothamBold
+turboBtn.TextColor3 = colors.text
+turboBtn.TextSize = 19
+turboBtn.ZIndex = 4
+Instance.new("UICorner", turboBtn).CornerRadius = UDim.new(0,10)
+turboBtn.MouseEnter:Connect(function() turboBtn.BackgroundColor3 = Color3.fromRGB(149,242,110) end)
+turboBtn.MouseLeave:Connect(function() turboBtn.BackgroundColor3 = Color3.fromRGB(118,210,98) end)
+turboBtn.MouseButton1Click:Connect(function()
+    activateCarTurbo()
 end)
 
-------------------------------------------------------------------
----- MINIMIZAR/ABRIR HUB (bolinha discreta) ----------------------
-------------------------------------------------------------------
+local autoClickBtn = makeToggleBtn("Auto Click")
+autoClickBtn.MouseButton1Click:Connect(function()
+    state.AutoClick = not state.AutoClick
+    autoClickBtn.Text = (state.AutoClick and "[ ON ] " or "[ OFF ] ") .. "Auto Click"
+    if state.AutoClick then
+        startAutoClick()
+    else
+        stopAutoClick()
+    end
+end)
+
+local autoAttackBtn = makeToggleBtn("Ataque à distância NPCs (Blox Fruits)")
+autoAttackBtn.MouseButton1Click:Connect(function()
+    state.AutoAttackNPC = not state.AutoAttackNPC
+    autoAttackBtn.Text = (state.AutoAttackNPC and "[ ON ] " or "[ OFF ] ") .. "Ataque à distância NPCs (Blox Fruits)"
+    if state.AutoAttackNPC then
+        startAutoAttackNPC()
+    else
+        stopAutoAttackNPC()
+    end
+end)
+
+------------------------------------------------------------------------
+-- Minimizar/Abrir Hub
 minBtn.MouseButton1Click:Connect(function()
     mainFrame.Visible = false
     shadowFrame.Visible = false
@@ -285,5 +384,4 @@ iconMin.MouseButton1Click:Connect(function()
     shadowFrame.Visible = true
     iconMin.Visible = false
 end)
-
 hubGui.DisplayOrder = 8926
