@@ -1,7 +1,7 @@
 --[[
     RaioVerse Hub - LocalScript Roblox
-    Funções: AimBot, Fly, Velocidade, Exibir Hitbox, Minimizar HUB
-    Coloquem esse script em StarterGui.
+    Funções: AimBot, Fly, Velocidade, Hitbox em tempo real, Minimizar HUB
+    Uso: Coloque em StarterGui ou execute via executor.
 --]]
 
 local Players = game:GetService("Players")
@@ -28,16 +28,15 @@ local function createRoundFrame(parent, size, pos, color, transparency)
     return frame
 end
 
--- HUB principal
 local hubGui = Instance.new("ScreenGui")
 hubGui.Name = "RaioVerseHub"
 hubGui.Parent = CoreGui
 
-local mainFrame = createRoundFrame(
-    hubGui, UDim2.new(0,390,0,310), UDim2.new(0.5,-195,0.5,-155), Color3.fromRGB(25,28,48), 0.10)
-mainFrame.Active, mainFrame.Draggable, mainFrame.Visible = true, true, true
+local mainFrame = createRoundFrame(hubGui, UDim2.new(0,390,0,310), UDim2.new(0.5,-195,0.5,-155), Color3.fromRGB(25,28,48), 0.10)
+mainFrame.Active = true
+mainFrame.Draggable = true
+mainFrame.Visible = true
 
--- Header e botão minimizar
 local header = createRoundFrame(mainFrame, UDim2.new(1,0,0,45), UDim2.new(0,0,0,0), Color3.fromRGB(30,37,70), 0.07)
 local title = Instance.new("TextLabel", header)
 title.Size = UDim2.new(1, -50, 1, 0)
@@ -60,14 +59,12 @@ minBtn.TextColor3 = Color3.fromRGB(205,205,230)
 minBtn.TextSize = 28
 Instance.new("UICorner", minBtn).CornerRadius = UDim.new(0, 8)
 
--- Container de botões
 local btnFrame = createRoundFrame(mainFrame, UDim2.new(1, -32, 1, -60), UDim2.new(0,16,0,50), Color3.fromRGB(29,23,43), 0.18)
 local btnList = Instance.new("UIListLayout", btnFrame)
 btnList.Padding = UDim.new(0,16)
 btnList.HorizontalAlignment = Enum.HorizontalAlignment.Center
 btnList.SortOrder = Enum.SortOrder.LayoutOrder
 
--- Função para criar botões toggláveis
 local function makeToggleBtn(texto)
     local btn = Instance.new("TextButton", btnFrame)
     btn.Size = UDim2.new(1, -10, 0, 44)
@@ -79,13 +76,11 @@ local function makeToggleBtn(texto)
     btn.TextSize = 19
     local icorner = Instance.new("UICorner", btn)
     icorner.CornerRadius = UDim.new(0,13)
-    -- Hover effect
     btn.MouseEnter:Connect(function() btn.BackgroundColor3 = Color3.fromRGB(88,115,215) end)
     btn.MouseLeave:Connect(function() btn.BackgroundColor3 = Color3.fromRGB(67,89,174) end)
     return btn
 end
 
--- Créditos discretos
 local credits = Instance.new("TextLabel", mainFrame)
 credits.Size = UDim2.new(1,0,0,18)
 credits.Position = UDim2.new(0,0,1,-18)
@@ -100,7 +95,6 @@ credits.TextSize = 14
 ---------------------- TOGGLE LOGIC ------------------------------
 ------------------------------------------------------------------
 
--- Estados
 local state = {
     AimBot = false,
     Fly = false,
@@ -109,11 +103,9 @@ local state = {
 }
 
 ------------------------------------------------------------------
--- AimBot: Câmera mira automaticamente no jogador mais próximo da sua tela enquanto pressionando [Q] --
+-- AimBot: Mira automaticamente no jogador mais próximo (ativa assim que ligar)
 ------------------------------------------------------------------
-local AimbotAimKey = Enum.KeyCode.Q
-local currentAimbot = nil
-
+local aimbotConn = nil
 local function getClosestPlayer()
     local smallest = math.huge
     local cam = workspace.CurrentCamera
@@ -123,7 +115,7 @@ local function getClosestPlayer()
             local hrp = p.Character.HumanoidRootPart.Position
             local pos, onScreen = cam:WorldToViewportPoint(hrp)
             if onScreen then
-                local dist = (Vector2.new(pos.X, pos.Y) - UserInputService:GetMouseLocation()).Magnitude
+                local dist = (Vector2.new(pos.X, pos.Y) - Vector2.new(cam.ViewportSize.X/2, cam.ViewportSize.Y/2)).Magnitude
                 if dist < smallest then
                     smallest = dist
                     bestPlayer = p
@@ -134,19 +126,18 @@ local function getClosestPlayer()
     return bestPlayer
 end
 
-local function doAimbot()
-    if not state.AimBot then return end
-    local cam = workspace.CurrentCamera
-    local target = getClosestPlayer()
-    if target and target.Character and target.Character:FindFirstChild("HumanoidRootPart") then
-        cam.CFrame = CFrame.new(cam.CFrame.Position, target.Character.HumanoidRootPart.Position)
+local function aimBotStep()
+    if state.AimBot then
+        local cam = workspace.CurrentCamera
+        local target = getClosestPlayer()
+        if target and target.Character and target.Character:FindFirstChild("HumanoidRootPart") then
+            cam.CFrame = CFrame.new(cam.CFrame.Position, target.Character.HumanoidRootPart.Position)
+        end
     end
 end
 
-local aimBotConnection = nil
-
 ------------------------------------------------------------------
--- Fly: Segure Barra de Espaço para subir/se mover livremente
+-- Fly: Use W/A/S/D + Espaço/LCtrl para voar
 ------------------------------------------------------------------
 local flyConn = nil
 local FlySpeed = 60
@@ -165,8 +156,7 @@ local function flyActivate()
         if UserInputService:IsKeyDown(Enum.KeyCode.D) then flyVec = flyVec + workspace.CurrentCamera.CFrame.RightVector end
         if UserInputService:IsKeyDown(Enum.KeyCode.Space) then flyVec = flyVec + Vector3.new(0,1,0) end
         if UserInputService:IsKeyDown(Enum.KeyCode.LeftControl) then flyVec = flyVec - Vector3.new(0,1,0) end
-        flyT.Velocity = flyVec.Unit * FlySpeed
-        if flyVec.Magnitude == 0 then flyT.Velocity = Vector3.new(0,0,0) end
+        flyT.Velocity = flyVec.Magnitude > 0 and flyVec.Unit * FlySpeed or Vector3.new(0,0,0)
     end)
 end
 local function stopFly()
@@ -187,67 +177,68 @@ local function setSpeed(enabled)
         localPlayer.Character:FindFirstChildWhichIsA("Humanoid").WalkSpeed = enabled and SpeedValue or 16
     end
 end
+
 local function FixSpeed()
     setSpeed(state.Speed)
 end
 localPlayer.CharacterAdded:Connect(function()
-    wait(0.5)
+    wait(0.4)
     FixSpeed()
 end)
 
 ------------------------------------------------------------------
--- Hitbox: destaca Hitbox de outros players
+-- Hitbox em tempo real
 ------------------------------------------------------------------
 local hitboxParts = {}
-local function highlightHitboxes(enable)
-    -- Limpa os highlights antigos
+
+local function clearHitboxes()
     for _, hl in ipairs(hitboxParts) do pcall(function() hl:Destroy() end) end
     table.clear(hitboxParts)
-    if not enable then return end
+end
+
+local function updateHitboxes()
+    clearHitboxes()
+    if not state.Hitbox then return end
     for _, player in ipairs(Players:GetPlayers()) do
         if player ~= localPlayer and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
             local highlight = Instance.new("BoxHandleAdornment")
             highlight.Name = "RaioHitbox"
             highlight.Adornee = player.Character.HumanoidRootPart
             highlight.Color3 = Color3.fromRGB(255, 65, 85)
-            highlight.AlwaysOnTop, highlight.Transparency, highlight.Size = true, 0.6, Vector3.new(4,6,2)
+            highlight.AlwaysOnTop, highlight.Transparency, highlight.Size = true, 0.45, Vector3.new(4,6,2)
             highlight.ZIndex = 3
             highlight.Parent = workspace
             table.insert(hitboxParts, highlight)
         end
     end
 end
-Players.PlayerAdded:Connect(function(plr)
-    plr.CharacterAdded:Connect(function()
-        if state.Hitbox then wait(0.2) highlightHitboxes(true) end
-    end)
-end)
-Players.PlayerRemoving:Connect(function(plr)
-    if state.Hitbox then highlightHitboxes(true) end
-end)
+
+-- Atualiza hitboxes o tempo todo quando ligado!
+local hitboxUpdateConn = nil
+local function toggleHitbox(active)
+    if active and not hitboxUpdateConn then
+        hitboxUpdateConn = RunService.RenderStepped:Connect(function()
+            updateHitboxes()
+        end)
+    elseif not active and hitboxUpdateConn then
+        hitboxUpdateConn:Disconnect()
+        hitboxUpdateConn = nil
+        clearHitboxes()
+    end
+end
 
 ------------------------------------------------------------------
--- BOTÕES E EVENTOS
+---------------------- BOTÕES E EVENTOS --------------------------
 ------------------------------------------------------------------
-local aimBtn = makeToggleBtn("Aim Bot (Segure Q para mirar automático)")
+local aimBtn = makeToggleBtn("Aim Bot (Apontar automaticamente)")
 aimBtn.MouseButton1Click:Connect(function()
     state.AimBot = not state.AimBot
-    aimBtn.Text = (state.AimBot and "[ ON ] " or "[ OFF ] ") .. "Aim Bot (Segure Q para mirar automático)"
-    if state.AimBot and not aimBotConnection then
-        aimBotConnection = UserInputService.InputBegan:Connect(function(input,gp)
-            if input.KeyCode == AimbotAimKey then
-                RunService:BindToRenderStep("RaioVerseAim", 300, doAimbot)
-            end
-        end)
-        UserInputService.InputEnded:Connect(function(input,gp)
-            if input.KeyCode == AimbotAimKey then
-                RunService:UnbindFromRenderStep("RaioVerseAim")
-            end
-        end)
-    elseif not state.AimBot and aimBotConnection then
-        aimBotConnection:Disconnect()
-        aimBotConnection = nil
-        RunService:UnbindFromRenderStep("RaioVerseAim")
+    aimBtn.Text = (state.AimBot and "[ ON ] " or "[ OFF ] ") .. "Aim Bot (Apontar automaticamente)"
+    if state.AimBot and not aimbotConn then
+        aimbotConn = RunService.RenderStepped:Connect(aimBotStep)
+    elseif not state.AimBot and aimbotConn then
+        aimbotConn:Disconnect()
+        aimbotConn = nil
     end
 end)
 
@@ -269,11 +260,11 @@ speedBtn.MouseButton1Click:Connect(function()
     setSpeed(state.Speed)
 end)
 
-local hitboxBtn = makeToggleBtn("Ativar Hitbox Jogadores")
+local hitboxBtn = makeToggleBtn("Hitbox em Tempo Real")
 hitboxBtn.MouseButton1Click:Connect(function()
     state.Hitbox = not state.Hitbox
-    hitboxBtn.Text = (state.Hitbox and "[ ON ] " or "[ OFF ] ") .. "Ativar Hitbox Jogadores"
-    highlightHitboxes(state.Hitbox)
+    hitboxBtn.Text = (state.Hitbox and "[ ON ] " or "[ OFF ] ") .. "Hitbox em Tempo Real"
+    toggleHitbox(state.Hitbox)
 end)
 
 ------------------------------------------------------------------
@@ -299,15 +290,8 @@ minBtn.MouseButton1Click:Connect(function()
     end
 end)
 
-------------------------------------------------------------------
----- FEEDBACK VISUAL E FUNCIONALIDADES BASE CONCLUÍDAS -----------
----- Sinta-se à vontade para editar textos, cores, ícones! -------
-------------------------------------------------------------------
-
--- GUI/Hub ficará sempre acima
 hubGui.DisplayOrder = 8926
 
--- Garantir que WalkSpeed sempre ajuste ao respawn
 game:GetService("RunService").Stepped:Connect(function()
     if state.Speed then setSpeed(true) end
 end)
