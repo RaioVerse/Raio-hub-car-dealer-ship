@@ -1,84 +1,100 @@
 --[[
-  RaioVerse Hub - Leve, bonito e funcional
-  Funções:
-    - AimBot suave (só mira players visíveis, sem atravessar paredes)
-    - Speed (WalkSpeed toggle)
-    - Skeleton ESP (esqueleto) em tempo real
-    - Minimizar eficiente (mostra ícone discreto)
-  Instruções: cole este script como LocalScript em StarterGui
+  RaioVerse Hub - Versão atualizada
+  Removidas: Correr mais rápido, Pulo infinito
+  Adicionada: Imortalidade (Vida infinita) - tenta manter sua vida sempre cheia
+  Mantidas: AimBot (visível apenas), ESP Esqueleto, Minimizar, FOV, NoClip, ClickTP, Anti-AFK
+  Coloque esse script como LocalScript em StarterGui.
 --]]
 
-local Players = game:GetService("Players")
-local RunService = game:GetService("RunService")
-local CoreGui = game:GetService("CoreGui")
-local Workspace = game:GetService("Workspace")
+local Players        = game:GetService("Players")
+local RunService     = game:GetService("RunService")
+local Workspace      = game:GetService("Workspace")
+local CoreGui        = game:GetService("CoreGui")
+local UserInput      = game:GetService("UserInputService")
+local VirtualUser    = game:GetService("VirtualUser")
 
 local localPlayer = Players.LocalPlayer
 local camera = Workspace.CurrentCamera
 
--- === Configs ===
-local AIM_SMOOTH = 0.12         -- 0.01 (muito lento) -> 1 (instantâneo)
-local AIM_FOV_PIXELS = 400     -- só considera alvos dentro desse raio (pixels) do centro da tela
-local SPEED_VALUE = 45
+-- ===== Configs =====
+local AIM_SMOOTH = 0.12            -- suavidade do aimbot (0.01 lento .. 1 instantâneo)
+local AIM_FOV_PIXELS = 400         -- somente alvos dentro desse raio (px) do centro
+local SKELETON_WIDTH0 = 0.15
+local SKELETON_WIDTH1 = 0.06
+local SKELETON_ALPHA = 0.22
+local IMMORTAL_MAX_HEALTH = 1e6    -- valor atribuído ao MaxHealth local (ajuste se quiser)
+local IMMORTAL_RESTORE_DELAY = 0.03 -- delay entre tentativas de restauração de vida
 
--- Paleta + estilos leves
+-- ===== Paleta e estilos =====
 local COLORS = {
-    bg = Color3.fromRGB(24,26,38),
-    header = Color3.fromRGB(34,38,62),
-    accent = Color3.fromRGB(119,152,255),
-    btn = Color3.fromRGB(70,80,145),
-    btn_hover = Color3.fromRGB(95,120,220),
-    text = Color3.fromRGB(235,240,255),
+    bg = Color3.fromRGB(18,20,30),
+    header = Color3.fromRGB(28,32,52),
+    accent = Color3.fromRGB(115,150,255),
+    btn = Color3.fromRGB(60,72,150),
+    btn_hover = Color3.fromRGB(85,105,220),
+    text = Color3.fromRGB(232,240,255),
+    soft = Color3.fromRGB(40,44,60),
 }
 
--- === GUI ===
+-- ===== GUI =====
 local gui = Instance.new("ScreenGui")
 gui.Name = "RaioVerseHub"
+gui.IgnoreGuiInset = true
 gui.Parent = CoreGui
 gui.DisplayOrder = 9999
 
--- shadow
+-- Shadow
 local shadow = Instance.new("Frame", gui)
-shadow.Size = UDim2.new(0, 360, 0, 220)
-shadow.Position = UDim2.new(0.5, -180, 0.5, -110)
-shadow.BackgroundColor3 = Color3.fromRGB(8,8,12)
+shadow.Size = UDim2.new(0, 420, 0, 260)
+shadow.Position = UDim2.new(0.5, -210, 0.5, -130)
+shadow.BackgroundColor3 = Color3.fromRGB(6,6,10)
 shadow.BackgroundTransparency = 0.6
 shadow.ZIndex = 0
-local sc = Instance.new("UICorner", shadow); sc.CornerRadius = UDim.new(0, 16)
+local sc = Instance.new("UICorner", shadow); sc.CornerRadius = UDim.new(0, 18)
 
--- main
+-- Main
 local main = Instance.new("Frame", gui)
-main.Size = UDim2.new(0, 360, 0, 220)
-main.Position = UDim2.new(0.5, -180, 0.5, -110)
+main.Size = UDim2.new(0, 420, 0, 260)
+main.Position = UDim2.new(0.5, -210, 0.5, -130)
 main.BackgroundColor3 = COLORS.bg
 main.BorderSizePixel = 0
 main.ZIndex = 1
-local mc = Instance.new("UICorner", main); mc.CornerRadius = UDim.new(0, 16)
+local mc = Instance.new("UICorner", main); mc.CornerRadius = UDim.new(0, 18)
 main.Active = true
 main.Draggable = true
 
--- header
+-- Header
 local header = Instance.new("Frame", main)
-header.Size = UDim2.new(1, 0, 0, 44)
+header.Size = UDim2.new(1, 0, 0, 48)
 header.Position = UDim2.new(0, 0, 0, 0)
 header.BackgroundColor3 = COLORS.header
 header.BorderSizePixel = 0
-local hc = Instance.new("UICorner", header); hc.CornerRadius = UDim.new(0, 12)
+local hc = Instance.new("UICorner", header); hc.CornerRadius = UDim.new(0, 14)
 
 local title = Instance.new("TextLabel", header)
-title.Size = UDim2.new(1, -80, 1, 0)
-title.Position = UDim2.new(0, 16, 0, 0)
+title.Size = UDim2.new(1, -120, 1, 0)
+title.Position = UDim2.new(0, 18, 0, 0)
 title.BackgroundTransparency = 1
 title.Font = Enum.Font.GothamBold
-title.Text = "RaioVerse — Leve"
+title.Text = "RaioVerse — Clean"
 title.TextSize = 20
 title.TextColor3 = COLORS.accent
 title.TextXAlignment = Enum.TextXAlignment.Left
 
--- minimize button
+local sub = Instance.new("TextLabel", header)
+sub.Size = UDim2.new(0, 100, 1, 0)
+sub.Position = UDim2.new(1, -120, 0, 0)
+sub.BackgroundTransparency = 1
+sub.Font = Enum.Font.Gotham
+sub.Text = "v1.1"
+sub.TextSize = 14
+sub.TextColor3 = COLORS.text
+sub.TextXAlignment = Enum.TextXAlignment.Right
+
+-- Minimize
 local minBtn = Instance.new("TextButton", header)
-minBtn.Size = UDim2.new(0, 36, 0, 28)
-minBtn.Position = UDim2.new(1, -48, 0, 8)
+minBtn.Size = UDim2.new(0, 38, 0, 30)
+minBtn.Position = UDim2.new(1, -52, 0, 9)
 minBtn.BackgroundColor3 = COLORS.btn
 minBtn.Text = "—"
 minBtn.Font = Enum.Font.GothamBold
@@ -86,32 +102,54 @@ minBtn.TextColor3 = COLORS.text
 minBtn.TextSize = 20
 local mbc = Instance.new("UICorner", minBtn); mbc.CornerRadius = UDim.new(0, 8)
 
--- container
+-- Close
+local closeBtn = Instance.new("TextButton", header)
+closeBtn.Size = UDim2.new(0, 28, 0, 28)
+closeBtn.Position = UDim2.new(1, -12, 0, 10)
+closeBtn.BackgroundColor3 = Color3.fromRGB(180,60,70)
+closeBtn.Text = "✕"
+closeBtn.Font = Enum.Font.SourceSansBold
+closeBtn.TextSize = 14
+closeBtn.TextColor3 = Color3.fromRGB(255,255,255)
+Instance.new("UICorner", closeBtn).CornerRadius = UDim.new(0, 8)
+
+-- Container
 local container = Instance.new("Frame", main)
-container.Position = UDim2.new(0, 16, 0, 56)
-container.Size = UDim2.new(1, -32, 1, -72)
+container.Position = UDim2.new(0, 18, 0, 60)
+container.Size = UDim2.new(1, -36, 1, -78)
 container.BackgroundTransparency = 1
 
-local list = Instance.new("UIListLayout", container)
-list.Padding = UDim.new(0, 10)
-list.SortOrder = Enum.SortOrder.LayoutOrder
+local layout = Instance.new("UIListLayout", container)
+layout.Padding = UDim.new(0, 10)
+layout.SortOrder = Enum.SortOrder.LayoutOrder
 
-local function makeButton(text, color)
-    local b = Instance.new("TextButton", container)
-    b.Size = UDim2.new(1, 0, 0, 40)
-    b.BackgroundColor3 = color or COLORS.btn
-    b.AutoButtonColor = true
-    b.Font = Enum.Font.GothamSemibold
-    b.Text = "[ OFF ]  " .. text
-    b.TextColor3 = COLORS.text
-    b.TextSize = 16
-    local c = Instance.new("UICorner", b); c.CornerRadius = UDim.new(0, 8)
-    b.MouseEnter:Connect(function() b.BackgroundColor3 = COLORS.btn_hover end)
-    b.MouseLeave:Connect(function() b.BackgroundColor3 = color or COLORS.btn end)
-    return b
+local function makeToggleBtn(text)
+    local btn = Instance.new("TextButton", container)
+    btn.Size = UDim2.new(1, 0, 0, 40)
+    btn.BackgroundColor3 = COLORS.btn
+    btn.AutoButtonColor = true
+    btn.Font = Enum.Font.GothamSemibold
+    btn.Text = "[ OFF ]  " .. text
+    btn.TextColor3 = COLORS.text
+    btn.TextSize = 15
+    local c = Instance.new("UICorner", btn); c.CornerRadius = UDim.new(0, 10)
+    btn.MouseEnter:Connect(function() btn.BackgroundColor3 = COLORS.btn_hover end)
+    btn.MouseLeave:Connect(function() btn.BackgroundColor3 = COLORS.btn end)
+    return btn
 end
 
--- minimize icon (small, non-intrusive)
+-- Buttons
+local aimBtn = makeToggleBtn("AimBot Suave (visível apenas)")
+local skeletonBtn = makeToggleBtn("ESP Esqueleto (Hitbox)")
+local immortalBtn = makeToggleBtn("Imortal (Vida infinita)")
+
+-- Extra 4 funções universais restantes
+local fovBtn        = makeToggleBtn("FOV + (toggle)")
+local noclipBtn     = makeToggleBtn("NoClip (toggle)")
+local clickTPBtn    = makeToggleBtn("ClickTP (teleport ao clicar)")
+local antiAfkBtn    = makeToggleBtn("Anti-AFK (toggle)")
+
+-- Minimized icon
 local icon = Instance.new("ImageButton", gui)
 icon.Size = UDim2.new(0, 28, 0, 28)
 icon.Position = UDim2.new(0, 14, 0, 14)
@@ -119,11 +157,12 @@ icon.BackgroundTransparency = 0.55
 icon.Image = "rbxassetid://3926305904"
 icon.Visible = false
 icon.ZIndex = 50
+Instance.new("UICorner", icon).CornerRadius = UDim.new(0, 8)
 
--- credits
+-- Credits
 local credit = Instance.new("TextLabel", main)
-credit.Size = UDim2.new(1, -20, 0, 16)
-credit.Position = UDim2.new(0, 10, 1, -22)
+credit.Size = UDim2.new(1, -28, 0, 18)
+credit.Position = UDim2.new(0, 16, 1, -26)
 credit.BackgroundTransparency = 1
 credit.Font = Enum.Font.Gotham
 credit.Text = "☄️ RaioVerse"
@@ -131,19 +170,18 @@ credit.TextSize = 12
 credit.TextColor3 = COLORS.accent
 credit.TextXAlignment = Enum.TextXAlignment.Left
 
--- create buttons
-local aimBtn = makeButton("AimBot Suave (visível somente)", COLORS.btn)
-local speedBtn = makeButton("Correr mais rápido", COLORS.btn)
-local skeletonBtn = makeButton("ESP Esqueleto (Hitbox)", COLORS.btn)
-
--- === State ===
+-- ===== State =====
 local State = {
     Aim = false,
-    Speed = false,
     Skeleton = false,
+    Immortal = false,
+    FOV = false,
+    NoClip = false,
+    ClickTP = false,
+    AntiAFK = false,
 }
 
--- === Minimizar logic ===
+-- ===== Minimizar logic =====
 minBtn.MouseButton1Click:Connect(function()
     main.Visible = false
     shadow.Visible = false
@@ -154,63 +192,57 @@ icon.MouseButton1Click:Connect(function()
     shadow.Visible = true
     icon.Visible = false
 end)
+closeBtn.MouseButton1Click:Connect(function()
+    pcall(function() gui:Destroy() end)
+end)
 
--- === AIMBOT (visível somente) ===
+-- ===== Aimbot (aponta somente para players visíveis) =====
 local aimConnection = nil
-
 local function isPlayerVisible(target)
-    -- validações básicas
     if not target or not target.Character then return false end
     local hrp = target.Character:FindFirstChild("HumanoidRootPart")
     local humanoid = target.Character:FindFirstChildOfClass("Humanoid")
     if not hrp or not humanoid or humanoid.Health <= 0 then return false end
 
-    -- está na tela?
+    -- on screen
     local screenPos, onScreen = camera:WorldToViewportPoint(hrp.Position)
     if not onScreen then return false end
 
-    -- check FOV (distância em pixels do centro)
-    local center = Vector2.new(camera.ViewportSize.X / 2, camera.ViewportSize.Y / 2)
+    -- FOV check (pixels from center)
+    local center = Vector2.new(camera.ViewportSize.X/2, camera.ViewportSize.Y/2)
     local dist = (Vector2.new(screenPos.X, screenPos.Y) - center).Magnitude
     if dist > AIM_FOV_PIXELS then return false end
 
-    -- Raycast para verificar linha de visão (sem atravessar paredes)
+    -- Raycast: camera -> target to ensure no walls
     local origin = camera.CFrame.Position
     local direction = (hrp.Position - origin)
-    local rayParams = RaycastParams.new()
-    rayParams.FilterType = Enum.RaycastFilterType.Blacklist
-    -- ignorar o próprio personagem
-    if localPlayer.Character then
-        rayParams.FilterDescendantsInstances = { localPlayer.Character }
-    else
-        rayParams.FilterDescendantsInstances = {}
-    end
-    rayParams.IgnoreWater = true
-
-    local res = Workspace:Raycast(origin, direction, rayParams)
+    local params = RaycastParams.new()
+    params.FilterType = Enum.RaycastFilterType.Blacklist
+    params.FilterDescendantsInstances = { localPlayer.Character }
+    params.IgnoreWater = true
+    local res = Workspace:Raycast(origin, direction, params)
     if res then
-        -- se acertou algo, aceitar somente se for parte do target.Character
         if res.Instance and res.Instance:IsDescendantOf(target.Character) then
             return true
         else
             return false
         end
     end
-    -- sem hits (raro) -> considerar visível
     return true
 end
 
 local function getClosestVisiblePlayer()
-    local best, bestDist = nil, math.huge
+    local best = nil
+    local bestDist = math.huge
     local center = Vector2.new(camera.ViewportSize.X/2, camera.ViewportSize.Y/2)
     for _, p in ipairs(Players:GetPlayers()) do
         if p ~= localPlayer and p.Character and p.Character:FindFirstChild("HumanoidRootPart") then
             if isPlayerVisible(p) then
-                local pos = camera:WorldToViewportPoint(p.Character.HumanoidRootPart.Position)
-                local d = (Vector2.new(pos.X, pos.Y) - center).Magnitude
+                local sp = camera:WorldToViewportPoint(p.Character.HumanoidRootPart.Position)
+                local d = (Vector2.new(sp.X, sp.Y) - center).Magnitude
                 if d < bestDist then
-                    bestDist = d
                     best = p
+                    bestDist = d
                 end
             end
         end
@@ -218,7 +250,7 @@ local function getClosestVisiblePlayer()
     return best
 end
 
-local function aimStep(dt)
+local function aimStep()
     if not State.Aim then return end
     if not camera then camera = Workspace.CurrentCamera end
     local target = getClosestVisiblePlayer()
@@ -230,18 +262,8 @@ local function aimStep(dt)
     end
 end
 
--- === SPEED ===
-local function setSpeed(on)
-    if localPlayer.Character then
-        local humanoid = localPlayer.Character:FindFirstChildOfClass("Humanoid")
-        if humanoid then
-            humanoid.WalkSpeed = on and SPEED_VALUE or 16
-        end
-    end
-end
-
--- === SKELETON ESP (efficient, create beams once per player) ===
-local skeletons = {}
+-- ===== Skeleton ESP =====
+local skeletons = {} -- skeletons[player] = {attachments = {...}, beams = {...}}
 local bones = {
     {"Head","UpperTorso"}, {"UpperTorso","LowerTorso"},
     {"UpperTorso","LeftUpperArm"}, {"LeftUpperArm","LeftLowerArm"}, {"LeftLowerArm","LeftHand"},
@@ -251,34 +273,36 @@ local bones = {
 }
 
 local function createSkeletonFor(player)
+    if not player or player == localPlayer then return end
     if skeletons[player] then return end
-    if not player.Character then return end
+    local char = player.Character
+    if not char then return end
     local data = { attachments = {}, beams = {} }
 
-    -- create attachments per needed part (lazy: only if part exists)
-    for _, bonePair in ipairs(bones) do
-        local aName, bName = bonePair[1], bonePair[2]
-        local partA = player.Character:FindFirstChild(aName)
-        local partB = player.Character:FindFirstChild(bName)
+    for _, pair in ipairs(bones) do
+        local aName, bName = pair[1], pair[2]
+        local partA = char:FindFirstChild(aName)
+        local partB = char:FindFirstChild(bName)
         if partA and partB then
             local attA = Instance.new("Attachment")
-            attA.Name = "RaioAtt_"..aName
+            attA.Name = "Raio_Att_"..aName
             attA.Parent = partA
             local attB = Instance.new("Attachment")
-            attB.Name = "RaioAtt_"..bName
+            attB.Name = "Raio_Att_"..bName
             attB.Parent = partB
 
             local beam = Instance.new("Beam")
-            beam.Name = "RaioBeam_"..aName.."_"..bName
+            beam.Name = "Raio_Beam_"..aName.."_"..bName
             beam.Attachment0 = attA
             beam.Attachment1 = attB
             beam.FaceCamera = true
-            beam.Width0 = 0.15
-            beam.Width1 = 0.06
-            beam.Transparency = NumberSequence.new(0.25)
+            beam.Width0 = SKELETON_WIDTH0
+            beam.Width1 = SKELETON_WIDTH1
+            beam.Transparency = NumberSequence.new(1 - (1 - SKELETON_ALPHA))
             beam.Color = ColorSequence.new(COLORS.accent)
-            beam.LightEmission = 0.4
-            beam.Parent = Workspace -- parent in workspace so beams render well
+            beam.LightEmission = 0.35
+            beam.ZIndex = 3
+            beam.Parent = Workspace
 
             table.insert(data.attachments, attA)
             table.insert(data.attachments, attB)
@@ -295,14 +319,13 @@ local function destroySkeletonFor(player)
     for _, att in ipairs(data.attachments) do
         pcall(function() att:Destroy() end)
     end
-    for _, b in ipairs(data.beams) do
-        pcall(function() b:Destroy() end)
+    for _, beam in ipairs(data.beams) do
+        pcall(function() beam:Destroy() end)
     end
     skeletons[player] = nil
 end
 
-local function enableAllSkeletons()
-    -- create for existing players
+local function enableSkeletons()
     for _, p in ipairs(Players:GetPlayers()) do
         if p ~= localPlayer and p.Character then
             createSkeletonFor(p)
@@ -310,94 +333,246 @@ local function enableAllSkeletons()
     end
 end
 
-local function disableAllSkeletons()
-    for p,_ in pairs(skeletons) do
+local function disableSkeletons()
+    for p, _ in pairs(skeletons) do
         destroySkeletonFor(p)
     end
 end
 
--- Keep skeletons in sync with character lifecycle
+-- sync players
 Players.PlayerAdded:Connect(function(p)
     p.CharacterAdded:Connect(function()
         if State.Skeleton then
-            -- small delay to allow parts to exist
-            wait(0.15)
+            wait(0.12)
             createSkeletonFor(p)
         end
     end)
 end)
-Players.PlayerRemoving:Connect(function(p)
-    destroySkeletonFor(p)
-end)
-
--- Also handle when other players respawn
-local function onCharacterDescendantsChanged(player)
-    -- if skeleton enabled and character changed, rebuild
-    destroySkeletonFor(player)
-    if State.Skeleton and player.Character then
-        createSkeletonFor(player)
-    end
-end
-
--- monitor characters currently present
+Players.PlayerRemoving:Connect(function(p) destroySkeletonFor(p) end)
 for _, p in ipairs(Players:GetPlayers()) do
     if p ~= localPlayer then
         p.CharacterAdded:Connect(function() if State.Skeleton then wait(0.12); createSkeletonFor(p) end end)
     end
 end
 
--- === Button events ===
+-- ===== Immortality (client-side attempt) =====
+local immortalConn = nil
+local humanoidHealthConns = {}
+
+local function enableImmortal()
+    -- hook player's humanoid
+    local function hookHumanoid(hum)
+        if not hum then return end
+        pcall(function() hum.MaxHealth = IMMORTAL_MAX_HEALTH end)
+        pcall(function() hum.Health = hum.MaxHealth end)
+        -- HealthChanged: restore if drops
+        if humanoidHealthConns[hum] then humanoidHealthConns[hum]:Disconnect() end
+        humanoidHealthConns[hum] = hum.HealthChanged:Connect(function(h)
+            -- tiny wait to avoid race
+            wait(IMMORTAL_RESTORE_DELAY)
+            if hum and hum.Parent then
+                pcall(function()
+                    if hum.Health < hum.MaxHealth then
+                        hum.Health = hum.MaxHealth
+                    end
+                end)
+            end
+        end)
+        -- also prevent death by setting Died handler to immediately restore (best-effort)
+        hum.Died:Connect(function()
+            wait(0.03)
+            if hum and hum.Parent then
+                pcall(function()
+                    hum.Health = hum.MaxHealth
+                end)
+            end
+        end)
+    end
+
+    if localPlayer.Character then
+        local hum = localPlayer.Character:FindFirstChildOfClass("Humanoid")
+        hookHumanoid(hum)
+    end
+    -- reconnect on respawn
+    localPlayer.CharacterAdded:Connect(function(char)
+        wait(0.2)
+        local hum = char:FindFirstChildOfClass("Humanoid")
+        hookHumanoid(hum)
+    end)
+    -- also attempt to hook existing humanoid now (if any)
+    if localPlayer.Character and localPlayer.Character:FindFirstChildOfClass("Humanoid") then
+        hookHumanoid(localPlayer.Character:FindFirstChildOfClass("Humanoid"))
+    end
+
+    -- global guard: ensure periodic restore (best-effort client-side)
+    if immortalConn then immortalConn:Disconnect() end
+    immortalConn = RunService.Heartbeat:Connect(function()
+        local char = localPlayer.Character
+        if char then
+            local hum = char:FindFirstChildOfClass("Humanoid")
+            if hum and hum.Health < hum.MaxHealth then
+                pcall(function() hum.Health = hum.MaxHealth end)
+            end
+            if hum and hum.MaxHealth < IMMORTAL_MAX_HEALTH then
+                pcall(function() hum.MaxHealth = IMMORTAL_MAX_HEALTH end)
+            end
+        end
+    end)
+end
+
+local function disableImmortal()
+    if immortalConn then immortalConn:Disconnect(); immortalConn = nil end
+    for hum, conn in pairs(humanoidHealthConns) do
+        pcall(function() conn:Disconnect() end)
+    end
+    humanoidHealthConns = {}
+    -- try to reset MaxHealth to default
+    if localPlayer.Character then
+        local hum = localPlayer.Character:FindFirstChildOfClass("Humanoid")
+        if hum then
+            pcall(function() hum.MaxHealth = 100; if hum.Health > hum.MaxHealth then hum.Health = hum.MaxHealth end end)
+        end
+    end
+end
+
+-- ===== Universal Features =====
+
+-- 1) FOV changer (toggle)
+local DEFAULT_FOV = 70
+local FOV_TARGET = 110
+local function setFOV(on)
+    if not camera then camera = Workspace.CurrentCamera end
+    if on then camera.FieldOfView = FOV_TARGET else camera.FieldOfView = DEFAULT_FOV end
+end
+
+-- 2) NoClip (toggle) - set CanCollide false client-side
+local noclipConn = nil
+local function applyNoClip()
+    local char = localPlayer.Character
+    if not char then return end
+    for _, part in ipairs(char:GetDescendants()) do
+        if part:IsA("BasePart") then
+            pcall(function() part.CanCollide = false end)
+        end
+    end
+end
+local function startNoClip()
+    if noclipConn then return end
+    applyNoClip()
+    noclipConn = RunService.Stepped:Connect(function() applyNoClip() end)
+end
+local function stopNoClip()
+    if noclipConn then noclipConn:Disconnect(); noclipConn = nil end
+end
+
+-- 3) ClickTP (teleport to mouse position when clicking)
+local clickTP_Conn = nil
+local mouse = localPlayer:GetMouse()
+local function startClickTP()
+    if clickTP_Conn then return end
+    clickTP_Conn = mouse.Button1Down:Connect(function()
+        if not State.ClickTP then return end
+        local pos = mouse.Hit and mouse.Hit.Position
+        if pos and localPlayer.Character and localPlayer.Character:FindFirstChild("HumanoidRootPart") then
+            local hrp = localPlayer.Character.HumanoidRootPart
+            hrp.CFrame = CFrame.new(pos + Vector3.new(0, 3, 0))
+        end
+    end)
+end
+local function stopClickTP()
+    if clickTP_Conn then clickTP_Conn:Disconnect(); clickTP_Conn = nil end
+end
+
+-- 4) Anti-AFK
+local antiAfkConn = nil
+local function startAntiAfk()
+    if antiAfkConn then return end
+    pcall(function() VirtualUser:CaptureController() end)
+    antiAfkConn = localPlayer.Idled:Connect(function()
+        pcall(function()
+            VirtualUser:Button2Down(Vector2.new(0,0))
+            wait(0.1)
+            VirtualUser:Button2Up(Vector2.new(0,0))
+        end)
+    end)
+end
+local function stopAntiAfk()
+    if antiAfkConn then antiAfkConn:Disconnect(); antiAfkConn = nil end
+end
+
+-- ===== Button events hookup =====
 aimBtn.MouseButton1Click:Connect(function()
     State.Aim = not State.Aim
-    aimBtn.Text = (State.Aim and "[ ON ]  AimBot Suave" or "[ OFF ]  AimBot Suave")
-    if State.Aim and not aimConnection then
-        aimConnection = RunService.RenderStepped:Connect(aimStep)
-    elseif not State.Aim and aimConnection then
-        aimConnection:Disconnect(); aimConnection = nil
+    aimBtn.Text = (State.Aim and "[ ON ]  AimBot Suave (visível)" or "[ OFF ]  AimBot Suave (visível)")
+    if State.Aim then
+        if not aimConnection then aimConnection = RunService.RenderStepped:Connect(aimStep) end
+    else
+        if aimConnection then aimConnection:Disconnect(); aimConnection = nil end
     end
-end)
-
-speedBtn.MouseButton1Click:Connect(function()
-    State.Speed = not State.Speed
-    speedBtn.Text = (State.Speed and "[ ON ]  Correr mais rápido" or "[ OFF ]  Correr mais rápido")
-    setSpeed(State.Speed)
 end)
 
 skeletonBtn.MouseButton1Click:Connect(function()
     State.Skeleton = not State.Skeleton
     skeletonBtn.Text = (State.Skeleton and "[ ON ]  ESP Esqueleto" or "[ OFF ]  ESP Esqueleto")
     if State.Skeleton then
-        enableAllSkeletons()
-        -- connect existing characters for rebuild on respawn
-        for _, p in ipairs(Players:GetPlayers()) do
-            if p ~= localPlayer then
-                p.CharacterAdded:Connect(function()
-                    -- small wait then ensure skeleton for this player
-                    wait(0.12)
-                    createSkeletonFor(p)
-                end)
-                -- also watch for character model change: rebuild skeleton when descendant structure changes
-                if p.Character then
-                    p.Character.DescendantAdded:Connect(function() onCharacterDescendantsChanged(p) end)
-                    p.Character.DescendantRemoving:Connect(function() onCharacterDescendantsChanged(p) end)
-                end
-            end
-        end
+        enableSkeletons()
     else
-        disableAllSkeletons()
+        disableSkeletons()
     end
 end)
 
--- Ensure WalkSpeed re-applied on respawn
-localPlayer.CharacterAdded:Connect(function()
+immortalBtn.MouseButton1Click:Connect(function()
+    State.Immortal = not State.Immortal
+    immortalBtn.Text = (State.Immortal and "[ ON ]  Imortal (Vida infinita)" or "[ OFF ]  Imortal (Vida infinita)")
+    if State.Immortal then
+        enableImmortal()
+    else
+        disableImmortal()
+    end
+end)
+
+fovBtn.MouseButton1Click:Connect(function()
+    State.FOV = not State.FOV
+    fovBtn.Text = (State.FOV and "[ ON ]  FOV +" or "[ OFF ]  FOV +")
+    setFOV(State.FOV)
+end)
+
+noclipBtn.MouseButton1Click:Connect(function()
+    State.NoClip = not State.NoClip
+    noclipBtn.Text = (State.NoClip and "[ ON ]  NoClip" or "[ OFF ]  NoClip")
+    if State.NoClip then startNoClip() else stopNoClip() end
+end)
+
+clickTPBtn.MouseButton1Click:Connect(function()
+    State.ClickTP = not State.ClickTP
+    clickTPBtn.Text = (State.ClickTP and "[ ON ]  ClickTP" or "[ OFF ]  ClickTP")
+    if State.ClickTP then startClickTP() else stopClickTP() end
+end)
+
+antiAfkBtn.MouseButton1Click:Connect(function()
+    State.AntiAFK = not State.AntiAFK
+    antiAfkBtn.Text = (State.AntiAFK and "[ ON ]  Anti-AFK" or "[ OFF ]  Anti-AFK")
+    if State.AntiAFK then startAntiAfk() else stopAntiAfk() end
+end)
+
+-- Ensure features reapply on respawn
+localPlayer.CharacterAdded:Connect(function(char)
     wait(0.25)
-    if State.Speed then setSpeed(true) end
+    camera = Workspace.CurrentCamera
+    if State.NoClip then startNoClip() end
+    if State.Skeleton then enableSkeletons() end
+    if State.Immortal then enableImmortal() end
 end)
 
--- Cleanup on script disable/unload
+-- Cleanup on GUI removal
 gui.Destroying:Connect(function()
-    if aimConnection then aimConnection:Disconnect() end
-    disableAllSkeletons()
+    if aimConnection then aimConnection:Disconnect(); aimConnection = nil end
+    disableSkeletons()
+    stopNoClip()
+    stopClickTP()
+    stopAntiAfk()
+    disableImmortal()
+    setFOV(false) -- reset FOV
 end)
 
--- end of script
+print("[RaioVerseHub] carregado — Imortalidade: melhor esforço client-side. Use com responsabilidade.")
