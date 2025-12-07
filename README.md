@@ -1,253 +1,403 @@
 --[[
-    RaioVerse Hub - Blox Fruits (Com Minimizar!)
-    Funções: AimBot suave, Velocidade Turbo (personagem), Hitbox Gigante, Minimizar/Restaurar
+  RaioVerse Hub - Leve, bonito e funcional
+  Funções:
+    - AimBot suave (só mira players visíveis, sem atravessar paredes)
+    - Speed (WalkSpeed toggle)
+    - Skeleton ESP (esqueleto) em tempo real
+    - Minimizar eficiente (mostra ícone discreto)
+  Instruções: cole este script como LocalScript em StarterGui
 --]]
 
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local CoreGui = game:GetService("CoreGui")
+local Workspace = game:GetService("Workspace")
+
 local localPlayer = Players.LocalPlayer
+local camera = Workspace.CurrentCamera
 
-local colors = {
-    bg = Color3.fromRGB(40,44,60),
-    accent = Color3.fromRGB(103,146,255),
-    btn = Color3.fromRGB(93,108,198),
-    btn_hover = Color3.fromRGB(123,158,255),
-    text = Color3.fromRGB(221,234,255),
+-- === Configs ===
+local AIM_SMOOTH = 0.12         -- 0.01 (muito lento) -> 1 (instantâneo)
+local AIM_FOV_PIXELS = 400     -- só considera alvos dentro desse raio (pixels) do centro da tela
+local SPEED_VALUE = 45
+
+-- Paleta + estilos leves
+local COLORS = {
+    bg = Color3.fromRGB(24,26,38),
+    header = Color3.fromRGB(34,38,62),
+    accent = Color3.fromRGB(119,152,255),
+    btn = Color3.fromRGB(70,80,145),
+    btn_hover = Color3.fromRGB(95,120,220),
+    text = Color3.fromRGB(235,240,255),
 }
 
-local state = {
-    AimBot = false,
-    Speed = false,
-    HitboxGigante = false
-}
+-- === GUI ===
+local gui = Instance.new("ScreenGui")
+gui.Name = "RaioVerseHub"
+gui.Parent = CoreGui
+gui.DisplayOrder = 9999
 
--- GUI
-local hubGui = Instance.new("ScreenGui", CoreGui)
-hubGui.Name = "RaioVerseHub"
+-- shadow
+local shadow = Instance.new("Frame", gui)
+shadow.Size = UDim2.new(0, 360, 0, 220)
+shadow.Position = UDim2.new(0.5, -180, 0.5, -110)
+shadow.BackgroundColor3 = Color3.fromRGB(8,8,12)
+shadow.BackgroundTransparency = 0.6
+shadow.ZIndex = 0
+local sc = Instance.new("UICorner", shadow); sc.CornerRadius = UDim.new(0, 16)
 
-local mainFrame = Instance.new("Frame", hubGui)
-mainFrame.Size = UDim2.new(0,310,0,190)
-mainFrame.Position = UDim2.new(0.5,-155,0.5,-95)
-mainFrame.BackgroundColor3 = colors.bg
-mainFrame.BackgroundTransparency = 0.08
-mainFrame.BorderSizePixel = 0
-Instance.new("UICorner", mainFrame).CornerRadius = UDim.new(0,17)
-mainFrame.Active = true
-mainFrame.Draggable = true
+-- main
+local main = Instance.new("Frame", gui)
+main.Size = UDim2.new(0, 360, 0, 220)
+main.Position = UDim2.new(0.5, -180, 0.5, -110)
+main.BackgroundColor3 = COLORS.bg
+main.BorderSizePixel = 0
+main.ZIndex = 1
+local mc = Instance.new("UICorner", main); mc.CornerRadius = UDim.new(0, 16)
+main.Active = true
+main.Draggable = true
 
-local title = Instance.new("TextLabel", mainFrame)
-title.Size = UDim2.new(1,0,0,32)
-title.Position = UDim2.new(0,0,0,0)
+-- header
+local header = Instance.new("Frame", main)
+header.Size = UDim2.new(1, 0, 0, 44)
+header.Position = UDim2.new(0, 0, 0, 0)
+header.BackgroundColor3 = COLORS.header
+header.BorderSizePixel = 0
+local hc = Instance.new("UICorner", header); hc.CornerRadius = UDim.new(0, 12)
+
+local title = Instance.new("TextLabel", header)
+title.Size = UDim2.new(1, -80, 1, 0)
+title.Position = UDim2.new(0, 16, 0, 0)
 title.BackgroundTransparency = 1
 title.Font = Enum.Font.GothamBold
-title.Text = "RaioVerse Hub"
-title.TextColor3 = colors.accent
-title.TextSize = 21
+title.Text = "RaioVerse — Leve"
+title.TextSize = 20
+title.TextColor3 = COLORS.accent
+title.TextXAlignment = Enum.TextXAlignment.Left
 
--- Minimizar button (top right)
-local minBtn = Instance.new("TextButton", mainFrame)
-minBtn.Size = UDim2.new(0,28,0,28)
-minBtn.Position = UDim2.new(1,-36,0,5)
-minBtn.BackgroundColor3 = colors.btn
+-- minimize button
+local minBtn = Instance.new("TextButton", header)
+minBtn.Size = UDim2.new(0, 36, 0, 28)
+minBtn.Position = UDim2.new(1, -48, 0, 8)
+minBtn.BackgroundColor3 = COLORS.btn
 minBtn.Text = "—"
 minBtn.Font = Enum.Font.GothamBold
-minBtn.TextColor3 = colors.text
-minBtn.TextSize = 21
-Instance.new("UICorner", minBtn).CornerRadius = UDim.new(0,9)
+minBtn.TextColor3 = COLORS.text
+minBtn.TextSize = 20
+local mbc = Instance.new("UICorner", minBtn); mbc.CornerRadius = UDim.new(0, 8)
 
--- Minimizado (bolinha avatar)
-local iconMin = Instance.new("ImageButton", hubGui)
-iconMin.Size = UDim2.new(0,26,0,26)
-iconMin.Position = UDim2.new(0,16,0,16)
-iconMin.BackgroundTransparency = 0.5
-iconMin.Image = "rbxassetid://3926305904"
-iconMin.Visible = false
-iconMin.ZIndex = 10
+-- container
+local container = Instance.new("Frame", main)
+container.Position = UDim2.new(0, 16, 0, 56)
+container.Size = UDim2.new(1, -32, 1, -72)
+container.BackgroundTransparency = 1
 
--- Minimizar logic
+local list = Instance.new("UIListLayout", container)
+list.Padding = UDim.new(0, 10)
+list.SortOrder = Enum.SortOrder.LayoutOrder
+
+local function makeButton(text, color)
+    local b = Instance.new("TextButton", container)
+    b.Size = UDim2.new(1, 0, 0, 40)
+    b.BackgroundColor3 = color or COLORS.btn
+    b.AutoButtonColor = true
+    b.Font = Enum.Font.GothamSemibold
+    b.Text = "[ OFF ]  " .. text
+    b.TextColor3 = COLORS.text
+    b.TextSize = 16
+    local c = Instance.new("UICorner", b); c.CornerRadius = UDim.new(0, 8)
+    b.MouseEnter:Connect(function() b.BackgroundColor3 = COLORS.btn_hover end)
+    b.MouseLeave:Connect(function() b.BackgroundColor3 = color or COLORS.btn end)
+    return b
+end
+
+-- minimize icon (small, non-intrusive)
+local icon = Instance.new("ImageButton", gui)
+icon.Size = UDim2.new(0, 28, 0, 28)
+icon.Position = UDim2.new(0, 14, 0, 14)
+icon.BackgroundTransparency = 0.55
+icon.Image = "rbxassetid://3926305904"
+icon.Visible = false
+icon.ZIndex = 50
+
+-- credits
+local credit = Instance.new("TextLabel", main)
+credit.Size = UDim2.new(1, -20, 0, 16)
+credit.Position = UDim2.new(0, 10, 1, -22)
+credit.BackgroundTransparency = 1
+credit.Font = Enum.Font.Gotham
+credit.Text = "☄️ RaioVerse"
+credit.TextSize = 12
+credit.TextColor3 = COLORS.accent
+credit.TextXAlignment = Enum.TextXAlignment.Left
+
+-- create buttons
+local aimBtn = makeButton("AimBot Suave (visível somente)", COLORS.btn)
+local speedBtn = makeButton("Correr mais rápido", COLORS.btn)
+local skeletonBtn = makeButton("ESP Esqueleto (Hitbox)", COLORS.btn)
+
+-- === State ===
+local State = {
+    Aim = false,
+    Speed = false,
+    Skeleton = false,
+}
+
+-- === Minimizar logic ===
 minBtn.MouseButton1Click:Connect(function()
-    mainFrame.Visible = false
-    iconMin.Visible = true
+    main.Visible = false
+    shadow.Visible = false
+    icon.Visible = true
 end)
-iconMin.MouseButton1Click:Connect(function()
-    mainFrame.Visible = true
-    iconMin.Visible = false
+icon.MouseButton1Click:Connect(function()
+    main.Visible = true
+    shadow.Visible = true
+    icon.Visible = false
 end)
 
+-- === AIMBOT (visível somente) ===
+local aimConnection = nil
 
--- Buttons container
-local btnFrame = Instance.new("Frame", mainFrame)
-btnFrame.Size = UDim2.new(1,-30,1,-46)
-btnFrame.Position = UDim2.new(0,15,0,38)
-btnFrame.BackgroundTransparency = 1
-local btnList = Instance.new("UIListLayout", btnFrame)
-btnList.Padding = UDim.new(0,12)
-btnList.HorizontalAlignment = Enum.HorizontalAlignment.Center
-btnList.SortOrder = Enum.SortOrder.LayoutOrder
+local function isPlayerVisible(target)
+    -- validações básicas
+    if not target or not target.Character then return false end
+    local hrp = target.Character:FindFirstChild("HumanoidRootPart")
+    local humanoid = target.Character:FindFirstChildOfClass("Humanoid")
+    if not hrp or not humanoid or humanoid.Health <= 0 then return false end
 
-local function makeToggleBtn(txt)
-    local btn = Instance.new("TextButton", btnFrame)
-    btn.Size = UDim2.new(1,0,0,36)
-    btn.BackgroundColor3 = colors.btn
-    btn.Text = "[ OFF ]  "..txt
-    btn.Font = Enum.Font.Gotham
-    btn.TextColor3 = colors.text
-    btn.TextSize = 17
-    Instance.new("UICorner",btn).CornerRadius = UDim.new(0,9)
-    btn.MouseEnter:Connect(function() btn.BackgroundColor3 = colors.btn_hover end)
-    btn.MouseLeave:Connect(function() btn.BackgroundColor3 = colors.btn end)
-    return btn
-end
+    -- está na tela?
+    local screenPos, onScreen = camera:WorldToViewportPoint(hrp.Position)
+    if not onScreen then return false end
 
-------------------------------------------
--- FUNÇÃO: HITBOX GIGANTE (Blox Fruits)
-------------------------------------------
-local hitboxConn = nil
-local HITBOX_SIZE = Vector3.new(90,90,90)
+    -- check FOV (distância em pixels do centro)
+    local center = Vector2.new(camera.ViewportSize.X / 2, camera.ViewportSize.Y / 2)
+    local dist = (Vector2.new(screenPos.X, screenPos.Y) - center).Magnitude
+    if dist > AIM_FOV_PIXELS then return false end
 
-local function setHitboxSize(part, size)
-    if part and part:IsA("BasePart") then
-        part.Size = size
-        part.Transparency = 0.93
-        part.CanCollide = false
-        part.Massless = true
+    -- Raycast para verificar linha de visão (sem atravessar paredes)
+    local origin = camera.CFrame.Position
+    local direction = (hrp.Position - origin)
+    local rayParams = RaycastParams.new()
+    rayParams.FilterType = Enum.RaycastFilterType.Blacklist
+    -- ignorar o próprio personagem
+    if localPlayer.Character then
+        rayParams.FilterDescendantsInstances = { localPlayer.Character }
+    else
+        rayParams.FilterDescendantsInstances = {}
     end
-end
-local function resetHitboxSize(part)
-    if part and part:IsA("BasePart") then
-        part.Size = Vector3.new(1,1,2)
-        part.Transparency = 1
-        part.CanCollide = false
-        part.Massless = true
-    end
-end
+    rayParams.IgnoreWater = true
 
-local function applyGigante()
-    local char = localPlayer.Character
-    if not char then return end
-    local tool = char:FindFirstChildOfClass("Tool")
-    if tool then
-        for _,v in ipairs(tool:GetDescendants()) do
-            if v:IsA("BasePart") then
-                setHitboxSize(v, HITBOX_SIZE)
-            end
+    local res = Workspace:Raycast(origin, direction, rayParams)
+    if res then
+        -- se acertou algo, aceitar somente se for parte do target.Character
+        if res.Instance and res.Instance:IsDescendantOf(target.Character) then
+            return true
+        else
+            return false
         end
     end
-    for _,v in ipairs(char:GetChildren()) do
-        if v:IsA("BasePart") and (v.Name:lower():find("hand") or v.Name:lower():find("leg") or v.Name:lower():find("arm") or v.Name:lower():find("foot")) then
-            setHitboxSize(v, HITBOX_SIZE)
-        end
-    end
-end
-local function revertGigante()
-    local char = localPlayer.Character
-    if not char then return end
-    local tool = char:FindFirstChildOfClass("Tool")
-    if tool then
-        for _,v in ipairs(tool:GetDescendants()) do
-            if v:IsA("BasePart") then
-                resetHitboxSize(v)
-            end
-        end
-    end
-    for _,v in ipairs(char:GetChildren()) do
-        if v:IsA("BasePart") and (v.Name:lower():find("hand") or v.Name:lower():find("leg") or v.Name:lower():find("arm") or v.Name:lower():find("foot")) then
-            resetHitboxSize(v)
-        end
-    end
+    -- sem hits (raro) -> considerar visível
+    return true
 end
 
-local function startHitboxGigante()
-    if hitboxConn then return end
-    hitboxConn = RunService.RenderStepped:Connect(function()
-        if state.HitboxGigante then applyGigante() else revertGigante() end
-    end)
-end
-local function stopHitboxGigante()
-    if hitboxConn then hitboxConn:Disconnect(); hitboxConn = nil end
-    revertGigante()
-end
-
-------------------------------------------
--- AIMBOT SUAVE (mira suavemente no player mais próximo)
-------------------------------------------
-local aimbotConn = nil
-local AIMBOT_SMOOTHNESS = 0.13
-local function getClosestPlayer()
-    local smallest = math.huge
-    local cam = workspace.CurrentCamera
-    local bestPlayer = nil
-    for _,p in pairs(Players:GetPlayers()) do
-        if p ~= localPlayer and p.Character and p.Character:FindFirstChild("HumanoidRootPart") and p.Character:FindFirstChild("Humanoid")
-            and p.Character.Humanoid.Health > 0 then
-            local hrp = p.Character.HumanoidRootPart.Position
-            local pos, onScreen = cam:WorldToViewportPoint(hrp)
-            if onScreen then
-                local dist = (Vector2.new(pos.X, pos.Y) - Vector2.new(cam.ViewportSize.X/2, cam.ViewportSize.Y/2)).Magnitude
-                if dist < smallest then
-                    smallest = dist
-                    bestPlayer = p
+local function getClosestVisiblePlayer()
+    local best, bestDist = nil, math.huge
+    local center = Vector2.new(camera.ViewportSize.X/2, camera.ViewportSize.Y/2)
+    for _, p in ipairs(Players:GetPlayers()) do
+        if p ~= localPlayer and p.Character and p.Character:FindFirstChild("HumanoidRootPart") then
+            if isPlayerVisible(p) then
+                local pos = camera:WorldToViewportPoint(p.Character.HumanoidRootPart.Position)
+                local d = (Vector2.new(pos.X, pos.Y) - center).Magnitude
+                if d < bestDist then
+                    bestDist = d
+                    best = p
                 end
             end
         end
     end
-    return bestPlayer
+    return best
 end
-local function aimBotStep()
-    if state.AimBot then
-        local cam = workspace.CurrentCamera
-        local currentCF = cam.CFrame
-        local targetPlayer = getClosestPlayer()
-        if targetPlayer and targetPlayer.Character and targetPlayer.Character:FindFirstChild("HumanoidRootPart") then
-            local hrp = targetPlayer.Character.HumanoidRootPart
-            local lookAt = hrp.Position
-            cam.CFrame = currentCF:Lerp(CFrame.new(cam.CFrame.Position, lookAt), AIMBOT_SMOOTHNESS)
+
+local function aimStep(dt)
+    if not State.Aim then return end
+    if not camera then camera = Workspace.CurrentCamera end
+    local target = getClosestVisiblePlayer()
+    if target and target.Character and target.Character:FindFirstChild("HumanoidRootPart") then
+        local hrp = target.Character.HumanoidRootPart
+        local camPos = camera.CFrame.Position
+        local desired = CFrame.new(camPos, hrp.Position)
+        camera.CFrame = camera.CFrame:Lerp(desired, AIM_SMOOTH)
+    end
+end
+
+-- === SPEED ===
+local function setSpeed(on)
+    if localPlayer.Character then
+        local humanoid = localPlayer.Character:FindFirstChildOfClass("Humanoid")
+        if humanoid then
+            humanoid.WalkSpeed = on and SPEED_VALUE or 16
         end
     end
 end
 
-------------------------------------------
--- SPEED (CORRER MAIS RÁPIDO)
-------------------------------------------
-local SpeedValue = 45
-local function setSpeed(enabled)
-    if localPlayer.Character and localPlayer.Character:FindFirstChildWhichIsA("Humanoid") then
-        localPlayer.Character:FindFirstChildWhichIsA("Humanoid").WalkSpeed = enabled and SpeedValue or 16
+-- === SKELETON ESP (efficient, create beams once per player) ===
+local skeletons = {}
+local bones = {
+    {"Head","UpperTorso"}, {"UpperTorso","LowerTorso"},
+    {"UpperTorso","LeftUpperArm"}, {"LeftUpperArm","LeftLowerArm"}, {"LeftLowerArm","LeftHand"},
+    {"UpperTorso","RightUpperArm"}, {"RightUpperArm","RightLowerArm"}, {"RightLowerArm","RightHand"},
+    {"LowerTorso","LeftUpperLeg"}, {"LeftUpperLeg","LeftLowerLeg"}, {"LeftLowerLeg","LeftFoot"},
+    {"LowerTorso","RightUpperLeg"}, {"RightUpperLeg","RightLowerLeg"}, {"RightLowerLeg","RightFoot"},
+}
+
+local function createSkeletonFor(player)
+    if skeletons[player] then return end
+    if not player.Character then return end
+    local data = { attachments = {}, beams = {} }
+
+    -- create attachments per needed part (lazy: only if part exists)
+    for _, bonePair in ipairs(bones) do
+        local aName, bName = bonePair[1], bonePair[2]
+        local partA = player.Character:FindFirstChild(aName)
+        local partB = player.Character:FindFirstChild(bName)
+        if partA and partB then
+            local attA = Instance.new("Attachment")
+            attA.Name = "RaioAtt_"..aName
+            attA.Parent = partA
+            local attB = Instance.new("Attachment")
+            attB.Name = "RaioAtt_"..bName
+            attB.Parent = partB
+
+            local beam = Instance.new("Beam")
+            beam.Name = "RaioBeam_"..aName.."_"..bName
+            beam.Attachment0 = attA
+            beam.Attachment1 = attB
+            beam.FaceCamera = true
+            beam.Width0 = 0.15
+            beam.Width1 = 0.06
+            beam.Transparency = NumberSequence.new(0.25)
+            beam.Color = ColorSequence.new(COLORS.accent)
+            beam.LightEmission = 0.4
+            beam.Parent = Workspace -- parent in workspace so beams render well
+
+            table.insert(data.attachments, attA)
+            table.insert(data.attachments, attB)
+            table.insert(data.beams, beam)
+        end
+    end
+
+    skeletons[player] = data
+end
+
+local function destroySkeletonFor(player)
+    local data = skeletons[player]
+    if not data then return end
+    for _, att in ipairs(data.attachments) do
+        pcall(function() att:Destroy() end)
+    end
+    for _, b in ipairs(data.beams) do
+        pcall(function() b:Destroy() end)
+    end
+    skeletons[player] = nil
+end
+
+local function enableAllSkeletons()
+    -- create for existing players
+    for _, p in ipairs(Players:GetPlayers()) do
+        if p ~= localPlayer and p.Character then
+            createSkeletonFor(p)
+        end
     end
 end
-local function FixSpeed() setSpeed(state.Speed) end
-localPlayer.CharacterAdded:Connect(function() wait(0.3) FixSpeed() end)
-RunService.Stepped:Connect(function() if state.Speed then setSpeed(true) end end)
 
-------------------------------------------
--- BOTÕES
-------------------------------------------
-local aimBtn = makeToggleBtn("AimBot Suave")
+local function disableAllSkeletons()
+    for p,_ in pairs(skeletons) do
+        destroySkeletonFor(p)
+    end
+end
+
+-- Keep skeletons in sync with character lifecycle
+Players.PlayerAdded:Connect(function(p)
+    p.CharacterAdded:Connect(function()
+        if State.Skeleton then
+            -- small delay to allow parts to exist
+            wait(0.15)
+            createSkeletonFor(p)
+        end
+    end)
+end)
+Players.PlayerRemoving:Connect(function(p)
+    destroySkeletonFor(p)
+end)
+
+-- Also handle when other players respawn
+local function onCharacterDescendantsChanged(player)
+    -- if skeleton enabled and character changed, rebuild
+    destroySkeletonFor(player)
+    if State.Skeleton and player.Character then
+        createSkeletonFor(player)
+    end
+end
+
+-- monitor characters currently present
+for _, p in ipairs(Players:GetPlayers()) do
+    if p ~= localPlayer then
+        p.CharacterAdded:Connect(function() if State.Skeleton then wait(0.12); createSkeletonFor(p) end end)
+    end
+end
+
+-- === Button events ===
 aimBtn.MouseButton1Click:Connect(function()
-    state.AimBot = not state.AimBot
-    aimBtn.Text = (state.AimBot and "[ ON ] " or "[ OFF ] ").."AimBot Suave"
-    if state.AimBot and not aimbotConn then
-        aimbotConn = RunService.RenderStepped:Connect(aimBotStep)
-    elseif not state.AimBot and aimbotConn then
-        aimbotConn:Disconnect(); aimbotConn = nil
+    State.Aim = not State.Aim
+    aimBtn.Text = (State.Aim and "[ ON ]  AimBot Suave" or "[ OFF ]  AimBot Suave")
+    if State.Aim and not aimConnection then
+        aimConnection = RunService.RenderStepped:Connect(aimStep)
+    elseif not State.Aim and aimConnection then
+        aimConnection:Disconnect(); aimConnection = nil
     end
 end)
 
-local speedBtn = makeToggleBtn("Velocidade Turbo (Personagem)")
 speedBtn.MouseButton1Click:Connect(function()
-    state.Speed = not state.Speed
-    speedBtn.Text = (state.Speed and "[ ON ] " or "[ OFF ] ").."Velocidade Turbo (Personagem)"
-    setSpeed(state.Speed)
+    State.Speed = not State.Speed
+    speedBtn.Text = (State.Speed and "[ ON ]  Correr mais rápido" or "[ OFF ]  Correr mais rápido")
+    setSpeed(State.Speed)
 end)
 
-local hitboxBtn = makeToggleBtn("HITBOX GIGANTE")
-hitboxBtn.MouseButton1Click:Connect(function()
-    state.HitboxGigante = not state.HitboxGigante
-    hitboxBtn.Text = (state.HitboxGigante and "[ ON ] " or "[ OFF ] ").."HITBOX GIGANTE"
-    if state.HitboxGigante then
-        startHitboxGigante()
+skeletonBtn.MouseButton1Click:Connect(function()
+    State.Skeleton = not State.Skeleton
+    skeletonBtn.Text = (State.Skeleton and "[ ON ]  ESP Esqueleto" or "[ OFF ]  ESP Esqueleto")
+    if State.Skeleton then
+        enableAllSkeletons()
+        -- connect existing characters for rebuild on respawn
+        for _, p in ipairs(Players:GetPlayers()) do
+            if p ~= localPlayer then
+                p.CharacterAdded:Connect(function()
+                    -- small wait then ensure skeleton for this player
+                    wait(0.12)
+                    createSkeletonFor(p)
+                end)
+                -- also watch for character model change: rebuild skeleton when descendant structure changes
+                if p.Character then
+                    p.Character.DescendantAdded:Connect(function() onCharacterDescendantsChanged(p) end)
+                    p.Character.DescendantRemoving:Connect(function() onCharacterDescendantsChanged(p) end)
+                end
+            end
+        end
     else
-        stopHitboxGigante()
+        disableAllSkeletons()
     end
 end)
+
+-- Ensure WalkSpeed re-applied on respawn
+localPlayer.CharacterAdded:Connect(function()
+    wait(0.25)
+    if State.Speed then setSpeed(true) end
+end)
+
+-- Cleanup on script disable/unload
+gui.Destroying:Connect(function()
+    if aimConnection then aimConnection:Disconnect() end
+    disableAllSkeletons()
+end)
+
+-- end of script
